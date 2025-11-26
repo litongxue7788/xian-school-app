@@ -1,0 +1,9 @@
+{
+  "name": "xian-xiaoshengchu-assessment",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "echo 'Building static site'"
+  },
+  "devDependencies": {},
+  "dependencies": {}
+}
