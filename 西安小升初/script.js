@@ -197,15 +197,38 @@ function attachSearchableSelect(selectId) {
 
     select.parentNode.insertBefore(input, select);
 
-    const normalize = (s) => (s || '').toLowerCase();
+    const toLower = (s) => (s || '').toLowerCase();
+    const hasPinyin = !!(window.pinyinPro && window.pinyinPro.pinyin);
+
+    // 预计算每个 option 的全拼与简拼
+    const options = Array.from(select.options);
+    options.forEach((opt, idx) => {
+        if (idx === 0) return; // 跳过“请选择”
+        const txt = (opt.textContent || '').trim();
+        if (hasPinyin) {
+            const arr = window.pinyinPro.pinyin(txt, { toneType: 'none', type: 'array' }) || [];
+            const full = arr.join('');
+            const abbr = arr.map(s => (s && s[0]) ? s[0] : '').join('');
+            opt.dataset.fullpy = toLower(full);
+            opt.dataset.abbrpy = toLower(abbr);
+        } else {
+            opt.dataset.fullpy = '';
+            opt.dataset.abbrpy = '';
+        }
+        opt.dataset.chstxt = toLower(txt);
+    });
 
     input.addEventListener('input', () => {
-        const keyword = normalize(input.value.trim());
-        const options = Array.from(select.options);
+        const kw = toLower(input.value.trim());
+        const hasKw = !!kw;
         options.forEach((opt, idx) => {
             if (idx === 0) return; // 保留“请选择”
-            const txt = normalize(opt.textContent);
-            opt.hidden = keyword && !txt.includes(keyword);
+            if (!hasKw) { opt.hidden = false; return; }
+            const chs = opt.dataset.chstxt || '';
+            const full = opt.dataset.fullpy || '';
+            const abbr = opt.dataset.abbrpy || '';
+            const hit = chs.includes(kw) || (full && full.includes(kw)) || (abbr && abbr.includes(kw));
+            opt.hidden = !hit;
         });
         // 如果当前选项被隐藏，则清空选择
         if (select.selectedIndex > 0 && select.options[select.selectedIndex].hidden) {
