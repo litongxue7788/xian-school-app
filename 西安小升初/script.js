@@ -252,7 +252,7 @@ function formatHeatBadge(name) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 初始化所有UI元素
+    // 1. 初始化所有UI元素
     chatWindow = document.getElementById('chatWindow');
     chatHeader = document.getElementById('chatHeader');
     chatInput = document.getElementById('chatInput');
@@ -263,10 +263,38 @@ document.addEventListener('DOMContentLoaded', () => {
     configPanel = document.getElementById('configPanel');
     configStatus = document.getElementById('configStatus');
 
+    // 2. 绑定核心事件监听器
+    // 步骤导航
+    document.querySelector('#step1 .next-step-btn').addEventListener('click', goToStep2);
+    document.querySelector('#step2 .prev-step-btn').addEventListener('click', goToStep1);
+    document.querySelector('#step2 .next-step-btn').addEventListener('click', goToStep3);
+    document.querySelector('#step3 .prev-step-btn').addEventListener('click', goToStep2);
+    document.querySelector('#step3 .next-step-btn').addEventListener('click', goToStep4);
+    document.querySelector('#step4 .prev-step-btn').addEventListener('click', goToStep3);
+    document.querySelector('#step4 .next-step-btn').addEventListener('click', goToStep5);
+    document.querySelector('#step5 .prev-step-btn').addEventListener('click', goToStep4);
+    document.getElementById('generateReportBtn').addEventListener('click', generateReport);
+    document.querySelector('#step6 .prev-step-btn').addEventListener('click', goToStep5);
+
+    // AI聊天助手
+    document.querySelector('.chat-toggle-icon').addEventListener('click', toggleChat);
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', handleKeyPress);
+
+    // API配置面板
+    apiStatus.addEventListener('click', toggleConfigPanel);
+    document.getElementById('saveConfigBtn').addEventListener('click', saveAndTestConfig);
+    document.getElementById('localModeBtn').addEventListener('click', useLocalMode);
+
+    // 报告导出
+    document.getElementById('exportJsonBtn').addEventListener('click', exportReportJSON);
+    document.getElementById('exportPdfBtn').addEventListener('click', exportReportPDF);
+
+    // 3. 执行初始化逻辑
     loadConfig();
     setupStepLogic();
     setupDragAndDrop();
-        setupInputValidation();
+    setupInputValidation();
     updateAdmissionPriority();
     loadExternalStreets().then(() => {
         populateStreets('householdDistrict', 'householdStreet');
@@ -277,11 +305,11 @@ document.addEventListener('DOMContentLoaded', () => {
         attachSearchableSelect('residenceStreet');
     });
     
+    // 自动跳到下一步的逻辑
     document.querySelectorAll('input[type="radio"]').forEach(radio => {
         radio.addEventListener('click', (e) => {
             const currentSection = e.target.closest('.section');
             if (currentSection && currentSection.id === 'step1') return;
-            
             const currentStep = parseInt(currentSection.id.replace('step', ''));
             if (currentStep < 5) {
                 setTimeout(() => showStep(currentStep + 1), 200); 
