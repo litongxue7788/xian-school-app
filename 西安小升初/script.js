@@ -753,8 +753,8 @@ async function generateAIRecommendations(data) {
     const policyDiv = document.getElementById('policyAdvice');
 
     try {
-        const prompt = buildAIPrompt(data);
-        console.log("AI Prompt (for debugging):", prompt);
+        const promptData = buildAIPrompt(data);
+        console.log("AI Prompt (for debugging):", promptData);
         
         const resp = await fetch('/api/ai/route', {
             method: 'POST',
@@ -762,7 +762,9 @@ async function generateAIRecommendations(data) {
             body: JSON.stringify({
                 provider: CONFIG.provider || 'bailian',
                 action: 'recommend',
-                prompt: prompt
+                prompt: promptData.prompt, // 使用构建好的完整prompt
+                history: promptData.history, // 传递上下文历史
+                context: promptData.context // 传递用户画像数据
             })
         });
 
