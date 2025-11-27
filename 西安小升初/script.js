@@ -60,20 +60,29 @@ function populateStreets(districtSelectId, streetSelectId) {
     if (!districtSelect || !streetSelect) return;
 
     const fill = () => {
-        const selectedDistrict = districtSelect.value;
+        const selectedDistrict = (districtSelect.value || '').trim();
         const streets = STREET_DATA[selectedDistrict] || [];
-        streetSelect.innerHTML = '<option value="">请选择街道</option>';
-        streets.forEach(street => {
-            const option = document.createElement('option');
-            option.value = street;
-            option.textContent = street;
-            streetSelect.appendChild(option);
-        });
+        // 当未选择区时，提示“请先选择区”，否则渲染街道列表
+        if (!selectedDistrict) {
+            streetSelect.innerHTML = '<option value="">请先选择区</option>';
+            streetSelect.disabled = true;
+        } else {
+            streetSelect.innerHTML = '<option value="">请选择街道</option>';
+            streets.forEach(street => {
+                const option = document.createElement('option');
+                option.value = street;
+                option.textContent = street;
+                streetSelect.appendChild(option);
+            });
+            streetSelect.disabled = streets.length === 0;
+        }
         // 每次填充后清理错误提示
         clearFieldError(streetSelect);
     };
 
     districtSelect.addEventListener('change', () => {
+        // 切换区时，清空已选街道，再填充
+        streetSelect.value = '';
         fill();
         clearFieldError(districtSelect);
     });
