@@ -59,11 +59,34 @@ function populateStreets(districtSelectId, streetSelectId) {
     const streetSelect = document.getElementById(streetSelectId);
     if (!districtSelect || !streetSelect) return;
 
+    // 将下拉中的值或文本规范化为 STREET_DATA 的有效键
+    const mapDistrictKey = (raw) => {
+        if (!raw) return '';
+        let name = String(raw).trim();
+        // 去掉常见括号内容、空白与标点
+        name = name.replace(/[（(].*[）)]/g, '').replace(/\s+/g, '');
+        // 先尝试直接命中
+        if (STREET_DATA[name]) return name;
+        // 尝试用原始未去括号的文本直接命中
+        if (STREET_DATA[raw]) return raw;
+        // 模糊包含：如“西咸新区沣东新城”包含“西咸新区”
+        const keys = Object.keys(STREET_DATA);
+        for (const k of keys) {
+            if (name.includes(k.replace(/\s+/g, '')) || k.replace(/\s+/g, '').includes(name)) {
+                return k;
+            }
+        }
+        return '';
+    };
+
     const fill = () => {
-        const selectedDistrict = (districtSelect.value || '').trim();
-        const streets = STREET_DATA[selectedDistrict] || [];
-        // 当未选择区时，提示“请先选择区”，否则渲染街道列表
-        if (!selectedDistrict) {
+        const selectedOption = districtSelect.options[districtSelect.selectedIndex];
+        const rawValue = (districtSelect.value || '').trim();
+        const rawText = selectedOption ? (selectedOption.textContent || '').trim() : '';
+        const mapped = mapDistrictKey(rawValue) || mapDistrictKey(rawText);
+        const streets = mapped ? (STREET_DATA[mapped] || []) : [];
+
+        if (!mapped) {
             streetSelect.innerHTML = '<option value="">请先选择区</option>';
             streetSelect.disabled = true;
         } else {
@@ -76,16 +99,15 @@ function populateStreets(districtSelectId, streetSelectId) {
             });
             streetSelect.disabled = streets.length === 0;
         }
-        // 每次填充后清理错误提示
         clearFieldError(streetSelect);
     };
 
     districtSelect.addEventListener('change', () => {
-        // 切换区时，清空已选街道，再填充
         streetSelect.value = '';
         fill();
         clearFieldError(districtSelect);
     });
+
     // 初始化时根据当前已选区填充一次
     fill();
 }
