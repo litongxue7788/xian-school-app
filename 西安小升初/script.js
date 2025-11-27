@@ -41,13 +41,17 @@ const STREET_DATA = {
 async function loadExternalStreets() {
     try {
         if (window && window.STREETS_DATA && typeof window.STREETS_DATA === 'object') {
-            Object.assign(STREET_DATA, window.STREETS_DATA);
+            const keys = Object.keys(window.STREETS_DATA || {});
+            if (keys.length > 0) Object.assign(STREET_DATA, window.STREETS_DATA);
             return;
         }
         const resp = await fetch('data/streets.json', { cache: 'no-store' });
         if (resp.ok) {
             const ext = await resp.json();
-            if (ext && typeof ext === 'object') Object.assign(STREET_DATA, ext);
+            if (ext && typeof ext === 'object') {
+                const keys = Object.keys(ext || {});
+                if (keys.length > 0) Object.assign(STREET_DATA, ext);
+            }
         }
     } catch (e) {
         console.warn('外部街道数据未加载（可忽略）：', e.message || e);
