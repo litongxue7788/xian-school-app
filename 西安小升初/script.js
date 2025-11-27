@@ -781,6 +781,10 @@ function generateLocalRecommendations(data) {
 }
 
 async function generateAIRecommendations(data) {
+    const schoolRecDiv = document.getElementById('schoolRecommendation');
+    const timelineDiv = document.getElementById('timeline');
+    const policyDiv = document.getElementById('policyAdvice');
+    try {
         const promptData = buildAIPrompt(data);
         console.log("AI Prompt (for debugging):", promptData);
         
@@ -804,12 +808,11 @@ async function generateAIRecommendations(data) {
         const aiResponse = await resp.json();
 
         renderAIRecommendations(aiResponse, data);
-
     } catch (error) {
-        schoolRecDiv.innerHTML = '<p style="color:red">AI推荐生成失败，请检查网络或API配置后重试。</p>';
+        if (schoolRecDiv) schoolRecDiv.innerHTML = '<p style="color:red">AI推荐生成失败，请检查网络或API配置后重试。</p>';
         console.error("AI Recommendation Error:", error);
-        timelineDiv.innerHTML = '';
-        policyDiv.innerHTML = '';
+        if (timelineDiv) timelineDiv.innerHTML = '';
+        if (policyDiv) policyDiv.innerHTML = '';
     }
 }
 
