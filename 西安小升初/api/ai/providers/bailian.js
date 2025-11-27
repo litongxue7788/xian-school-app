@@ -34,11 +34,8 @@ function bailianProvider() {
           data += chunk;
         });
         res.on('end', () => {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(JSON.parse(data));
-          } else {
-            reject(new Error(`Request failed with status code ${res.statusCode}: ${data}`));
-          }
+          // Do not check status code here, just resolve with the full response
+          resolve({ statusCode: res.statusCode, body: data });
         });
       });
 
@@ -54,31 +51,83 @@ function bailianProvider() {
   return {
     chat: async ({ prompt, history }) => {
       const response = await _request(prompt, history);
-      return { text: response.data.text };
+      try {
+        const data = JSON.parse(response.body);
+        if (response.statusCode >= 200 && response.statusCode < 300 && data.Success && data.Data && data.Data.Text) {
+          return { text: data.Data.Text };
+        } else {
+          console.error('Bailian API error for chat:', data);
+          return { text: `AI服务返回错误，状态码: ${response.statusCode}, 错误信息: ${data.Message || response.body}` };
+        }
+      } catch (e) {
+        console.error('Failed to parse Bailian response for chat:', e, response.body);
+        return { text: `AI服务响应解析失败: ${response.body}` };
+      }
     },
+
     recommend: async ({ prompt }) => {
         const response = await _request(prompt);
         try {
-            // The response text is expected to be a JSON string.
-            return JSON.parse(response.data.text);
-        } catch(e) {
-            console.error("Failed to parse AI recommendation response:", e);
-            console.error("Raw AI response:", response.data.text);
-            // Fallback to a structured error to avoid crashing the client
+            const data = JSON.parse(response.body);
+            if (response.statusCode >= 200 && response.statusCode < 300 && data.Success && data.Data && data.Data.Text) {
+                try {
+                    return JSON.parse(data.Data.Text);
+                } catch(e) {
+                    console.error("Failed to parse AI recommendation JSON from text:", e, data.Data.Text);
+                    return {
+                        recommendations: [],
+                        timeline: [],
+                        advice: "AI返回了无法解析的JSON格式，请检查模型输出。"
+                    };
+                }
+            } else {
+                console.error('Bailian API error for recommend:', data);
+                return {
+                    recommendations: [],
+                    timeline: [],
+                    advice: `AI服务返回错误: ${data.Message || response.body}`
+                };
+            }
+        } catch (e) {
+            console.error('Failed to parse Bailian response for recommend:', e, response.body);
             return {
                 recommendations: [],
                 timeline: [],
-                advice: "AI返回了无法解析的数据格式，请检查AI模型的输出是否严格遵守JSON格式要求。"
+                advice: `AI服务响应解析失败: ${response.body}`
             };
         }
     },
+
     analyze: async ({ prompt }) => {
         const response = await _request(prompt);
-        return { text: response.data.text };
+        try {
+            const data = JSON.parse(response.body);
+            if (response.statusCode >= 200 && response.statusCode < 300 && data.Success && data.Data && data.Data.Text) {
+                return { text: data.Data.Text };
+            } else {
+                console.error('Bailian API error for analyze:', data);
+                return { text: `AI服务返回错误: ${data.Message || response.body}` };
+            }
+        } catch (e) {
+            console.error('Failed to parse Bailian response for analyze:', e, response.body);
+            return { text: `AI服务响应解析失败: ${response.body}` };
+        }
     },
+
     interpret: async ({ prompt }) => {
         const response = await _request(prompt);
-        return { text: response.data.text };
+        try {
+            const data = JSON.parse(response.body);
+            if (response.statusCode >= 200 && response.statusCode < 300 && data.Success && data.Data && data.Data.Text) {
+                return { text: data.Data.Text };
+            } else {
+                console.error('Bailian API error for interpret:', data);
+                return { text: `AI服务返回错误: ${data.Message || response.body}` };
+            }
+        } catch (e) {
+            console.error('Failed to parse Bailian response for interpret:', e, response.body);
+            return { text: `AI服务响应解析失败: ${response.body}` };
+        }
     }
   };
 }
