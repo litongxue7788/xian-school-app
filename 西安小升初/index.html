@@ -23,10 +23,10 @@
     
     <!-- API配置面板 -->
     <div class="config-panel" id="configPanel">
-        <div class="config-title"><i class="fas fa-key"></i> 阿里云百炼API配置</div>
-        <div class="config-status info" id="configStatus">配置API可获得更智能的个性化推荐</div>
-        <input type="password" class="config-input" id="apiKeyInput" placeholder="API Key (sk-开头)">
-        <input type="text" class="config-input" id="appIdInput" placeholder="APP ID">
+        <div class="config-title"><i class="fas fa-key"></i> 模型与API配置</div>
+        <div class="config-status info" id="configStatus">配置后将启用 AI 增强模式（请求经本站后端统一转发）</div>
+        <input type="password" class="config-input" id="apiKeyInput" placeholder="API Key (sk-开头或控制台生成)">
+        <input type="text" class="config-input" id="appIdInput" placeholder="APP ID（仅百炼需要）">
         <select class="config-input" id="providerSelect">
             <option value="bailian">阿里百炼/通义</option>
             <option value="openai">OpenAI</option>
@@ -34,16 +34,23 @@
         </select>
         <button class="config-btn" onclick="saveAndTestConfig()"><i class="fas fa-plug"></i> 保存并测试</button>
         <button class="config-btn secondary" onclick="useLocalMode()"><i class="fas fa-laptop"></i> 使用本地模式</button>
-        <div class="config-help">
-            <strong>说明：</strong><br>
-            - 请选择“模型提供者”，密钥仅存放于服务端环境变量，前端不会直接调用第三方API。<br>
-            - 部署到 Vercel 后，在项目 Settings → Environment Variables 设置对应密钥：<br>
-              BAILIAN_API_KEY/BAILIAN_APP_ID、OPENAI_API_KEY、DEEPSEEK_API_KEY。
-            <br><br>
-            <strong>获取方式（百炼）：</strong><br>
-            1. 登录<a href="https://bailian.console.aliyun.com" target="_blank">阿里云百炼控制台</a><br>
-            2. 应用管理 → 复制APP ID<br>
-            3. 密钥管理 → 创建API Key
+        <div class="config-help" id="providerHelp">
+            <strong>通用说明：</strong><br>
+            - 前端仅访问本站 <code>/api/ai/route</code>，由后端转发到所选模型提供商，避免跨域与地域限制。<br>
+            - 请在部署平台的环境变量中配置密钥，前端不保存密钥。<br>
+            - 如需移动端全国可用：建议使用国内节点部署后端并开启 HTTPS/CDN；避免直连境外模型。<br>
+            <br>
+            <strong>阿里百炼/通义：</strong><br>
+            - 需设置环境变量：<code>BAILIAN_API_KEY</code>、<code>BAILIAN_APP_ID</code><br>
+            - 控制台：<a href="https://bailian.console.aliyun.com" target="_blank">阿里云百炼控制台</a><br>
+            <br>
+            <strong>OpenAI：</strong><br>
+            - 需设置：<code>OPENAI_API_KEY</code>（可选 <code>OPENAI_MODEL</code>，默认 gpt-4o-mini）<br>
+            - 建议通过本站后端转发，客户端不直连，避免被移动网络/地域策略影响。<br>
+            <br>
+            <strong>DeepSeek：</strong><br>
+            - 需设置：<code>DEEPSEEK_API_KEY</code>（可选 <code>DEEPSEEK_MODEL</code>，默认 deepseek-chat）<br>
+            - 访问频繁时建议开启后端 Keep-Alive 与重试策略。
         </div>
     </div>
 
@@ -217,19 +224,26 @@
                             <label class="info-label">户籍所在区</label>
                             <select class="info-select" id="householdDistrict">
                                 <option value="">请选择区</option>
-                                <option value="雁塔区">雁塔区</option>
-                                <option value="碑林区">碑林区</option>
                                 <option value="新城区">新城区</option>
+                                <option value="碑林区">碑林区</option>
                                 <option value="莲湖区">莲湖区</option>
-                                <option value="未央区">未央区</option>
+                                <option value="雁塔区">雁塔区</option>
                                 <option value="灞桥区">灞桥区</option>
+                                <option value="未央区">未央区</option>
+                                <option value="阎良区">阎良区</option>
+                                <option value="临潼区">临潼区</option>
                                 <option value="长安区">长安区</option>
-                                <option value="高新区">高新区</option>
-                                <option value="曲江新区">曲江新区</option>
-                                <option value="经开区">经开区</option>
-                                <option value="浐灞生态区">浐灞生态区</option>
-                                <option value="航天基地">航天基地</option>
+                                <option value="高陵区">高陵区</option>
+                                <option value="鄠邑区">鄠邑区</option>
+                                <option value="蓝田县">蓝田县</option>
+                                <option value="周至县">周至县</option>
                                 <option value="西咸新区">西咸新区</option>
+                                <option value="高新区">高新区</option>
+                                <option value="经开区">经开区</option>
+                                <option value="曲江新区">曲江新区</option>
+                                <option value="浐灞国际港（浐灞片区）">浐灞国际港（浐灞片区）</option>
+                                <option value="浐灞国际港（港务片区）">浐灞国际港（港务片区）</option>
+                                <option value="航天基地">航天基地</option>
                                 <option value="外地户籍">外地户籍</option>
                             </select>
                         </div>
@@ -252,19 +266,26 @@
                             <label class="info-label">实际居住区</label>
                             <select class="info-select" id="residenceDistrict">
                                 <option value="">请选择区</option>
-                                <option value="雁塔区">雁塔区</option>
-                                <option value="碑林区">碑林区</option>
                                 <option value="新城区">新城区</option>
+                                <option value="碑林区">碑林区</option>
                                 <option value="莲湖区">莲湖区</option>
-                                <option value="未央区">未央区</option>
+                                <option value="雁塔区">雁塔区</option>
                                 <option value="灞桥区">灞桥区</option>
+                                <option value="未央区">未央区</option>
+                                <option value="阎良区">阎良区</option>
+                                <option value="临潼区">临潼区</option>
                                 <option value="长安区">长安区</option>
-                                <option value="高新区">高新区</option>
-                                <option value="曲江新区">曲江新区</option>
-                                <option value="经开区">经开区</option>
-                                <option value="浐灞生态区">浐灞生态区</option>
-                                <option value="航天基地">航天基地</option>
+                                <option value="高陵区">高陵区</option>
+                                <option value="鄠邑区">鄠邑区</option>
+                                <option value="蓝田县">蓝田县</option>
+                                <option value="周至县">周至县</option>
                                 <option value="西咸新区">西咸新区</option>
+                                <option value="高新区">高新区</option>
+                                <option value="经开区">经开区</option>
+                                <option value="曲江新区">曲江新区</option>
+                                <option value="浐灞国际港（浐灞片区）">浐灞国际港（浐灞片区）</option>
+                                <option value="浐灞国际港（港务片区）">浐灞国际港（港务片区）</option>
+                                <option value="航天基地">航天基地</option>
                             </select>
                         </div>
                         <div class="info-group">

@@ -10,14 +10,24 @@ const CITATION_DATA = {
         "url": "/xxgk/zcjd/1930436248770035714.html",
         "keywords": ["流程", "时间", "安排", "步骤", "报名", "录取", "日期", "图"]
     },
-    "政策解读": {
-        "title": "西安市2025年义务教育阳光招生政策解读",
-        "url": "https://www.xa.gov.cn/hd/zxft/1934544315572879362.html",
-        "keywords": ["解读", "解释", "分析", "理解"]
+    "新城区": {
+        "title": "新城区2025年义务教育招生入学工作实施方案和学区划分",
+        "url": "https://www.xincheng.gov.cn/zwgk/zdxxgk/ggqsydwxxgkml/xx/gsgg/1933062268408852482.html",
+        "keywords": ["新城", "新城区"]
     },
-    "政策图解": {
-        "title": "2025年西安市义务教育阳光招生政策图解",
-        "url": "/xxgk/zcjd/1949673041569017857.html",
-        "keywords": ["图解", "图示", "流程", "步骤"]
+    "碑林区": {
+        "title": "碑林区2025年义务教育招生入学工作实施方案和学区划分",
+        "url": "http://www.beilin.gov.cn/xwzx/tzgg/1933051292585308162.html",
+        "keywords": ["碑林", "碑林区"]
+    },
+    "莲湖区": {
+        "title": "莲湖区2025年义务教育招生入学工作实施方案和学区划分",
+        "url": "http://www.lianhu.gov.cn/xwzx/gsgg/1933065559121448962.html",
+        "keywords": ["莲湖", "莲湖区"]
+    },
+    "雁塔区": {
+        "title": "雁塔区2025年义务教育招生入学工作实施方案和学区划分",
+        "url": "http://www.yanta.gov.cn/xwzx/tzgg/1933080332593655809.html",
+        "keywords": ["雁塔", "雁塔区"]
     }
 };

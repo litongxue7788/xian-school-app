@@ -1,49 +1,86 @@
-const { requestWithRetry, pickRecommendations } = require('./utils.js');
-const { BAILIAN_API_KEY = '', BAILIAN_APP_ID = '' } = process.env;
-function echoText(prefix, prompt) {
-  const head = prompt?.slice(0, 80) || '';
-  return `${prefix}：${head || '（空提示）'}`;
-}
-module.exports = function BailianProvider() {
-  return {
-    async chat({ prompt }) {
-      if (!BAILIAN_API_KEY || !BAILIAN_APP_ID) return { text: echoText('骨架-百炼-聊天', prompt) };
-      try {
-        const url = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation';
-        const data = await requestWithRetry(url, {
-          headers: {
-            'Authorization': `Bearer ${BAILIAN_API_KEY}`,
-            'X-DashScope-AppId': BAILIAN_APP_ID,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ model: 'qwen-turbo', prompt: prompt }),
-          timeoutMs: 12000,
-          retries: 2
-        });
-        const text = data?.output?.text ?? data?.choices?.[0]?.message?.content ?? echoText('百炼-聊天(空响应)', prompt);
-        return { text };
-      } catch (e) {
-        return { text: `百炼API错误：${String(e.message || e)}\n` + echoText('回退', prompt) };
+const https = require('https');
+
+function bailianProvider() {
+  const API_KEY = process.env.BAILIAN_API_KEY;
+  const APP_ID = process.env.BAILIAN_APP_ID;
+
+  async function _request(prompt, history = []) {
+    if (!API_KEY || !APP_ID) {
+      throw new Error('BAILIAN_API_KEY and BAILIAN_APP_ID must be set in environment variables.');
+    }
+
+    const postData = JSON.stringify({
+      app_id: APP_ID,
+      prompt: prompt,
+      history: history,
+      stream: false
+    });
+
+    const options = {
+      hostname: 'bailian.aliyuncs.com',
+      path: '/v2/app/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${API_KEY}`,
+        'Content-Length': Buffer.byteLength(postData)
       }
+    };
+
+    return new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(JSON.parse(data));
+          } else {
+            reject(new Error(`Request failed with status code ${res.statusCode}: ${data}`));
+          }
+        });
+      });
+
+      req.on('error', (e) => {
+        reject(e);
+      });
+
+      req.write(postData);
+      req.end();
+    });
+  }
+
+  return {
+    chat: async ({ prompt, history }) => {
+      const response = await _request(prompt, history);
+      return { text: response.data.text };
     },
-    async interpret({ prompt }) { return this.chat({ prompt }); },
-    async analyze({ prompt }) { return this.chat({ prompt }); },
-    async profile({ prompt }) { return this.chat({ prompt }); },
-    async recommend({ prompt, context }) {
-      const schools = context?.schoolList || [];
-      const [sprint, steady, fallback] = pickRecommendations(schools, context?.familyInfo);
-      return {
-        recommendations: [
-          sprint ? { type: '冲刺', name: sprint.name, reason: '基于热度与名额，建议冲刺该校。', rate: '约20%' } : null,
-          steady ? { type: '稳妥', name: steady.name, reason: '匹配度较高，建议作为稳妥选项。', rate: '约50%' } : null,
-          { type: '保底', name: fallback.name, reason: `结合${fallback.district}统筹，建议作为底线保障。`, rate: '100%' }
-        ].filter(Boolean),
-        timeline: [
-          { date: '即日 ~ 2025-05-31', title: '研究目标校', content: '关注官网与开放日，完善资料。' },
-          { date: '2025-07-11 ~ 2025-07-24', title: '民办报名', content: '按政策时间节点完成报名与志愿。' }
-        ],
-        advice: `主攻优质民办，守住公办底线；结合区统筹与孩子画像稳步推进。`
-      };
+    recommend: async ({ prompt }) => {
+        const response = await _request(prompt);
+        try {
+            // The response text is expected to be a JSON string.
+            return JSON.parse(response.data.text);
+        } catch(e) {
+            console.error("Failed to parse AI recommendation response:", e);
+            console.error("Raw AI response:", response.data.text);
+            // Fallback to a structured error to avoid crashing the client
+            return {
+                recommendations: [],
+                timeline: [],
+                advice: "AI返回了无法解析的数据格式，请检查AI模型的输出是否严格遵守JSON格式要求。"
+            };
+        }
+    },
+    analyze: async ({ prompt }) => {
+        const response = await _request(prompt);
+        return { text: response.data.text };
+    },
+    interpret: async ({ prompt }) => {
+        const response = await _request(prompt);
+        return { text: response.data.text };
     }
   };
 }
+
+module.exports = bailianProvider;

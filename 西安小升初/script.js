@@ -14,6 +14,172 @@ let chatWindow, chatHeader, chatInput, sendBtn, chatBody, apiStatus, statusText,
 let offsetX, offsetY;
 let abilityChartInstance = null;
 
+const STREET_DATA = {
+    '新城区': ['西一路街道', '长乐中路街道', '中山门街道', '韩森寨街道', '解放门街道', '长乐西路街道', '太华路街道', '自强路街道'],
+    '碑林区': ['南院门街道', '柏树林街道', '长乐坊街道', '东关南街街道', '太乙路街道', '文艺路街道', '长安路街道', '张家村街道'],
+    '莲湖区': ['北院门街道', '青年路街道', '桃园路街道', '北关街道', '红庙坡街道', '环城西路街道', '土门街道', '枣园街道', '西关街道'],
+    '雁塔区': ['小寨路街道', '大雁塔街道', '长延堡街道', '电子城街道', '等驾坡街道', '鱼化寨街道', '丈八沟街道', '曲江街道'],
+    '灞桥区': ['纺织城街道', '十里铺街道', '红旗街道', '洪庆街道', '席王街道', '新筑街道', '狄寨街道'],
+    '未央区': ['未央宫街道', '大明宫街道', '张家堡街道', '徐家湾街道', '谭家街道', '草滩街道', '六村堡街道', '未央湖街道', '汉城街道'],
+    '阎良区': ['新华路街道', '凤凰路街道', '前进路街道', '胜利路街道', '新兴街道', '武屯街道', '关山街道'],
+    '临潼区': ['骊山街道', '秦陵街道', '新市街道', '代王街道', '斜口街道', '行者街道', '零口街道', '相桥街道', '雨金街道', '新丰街道', '西泉街道'],
+    '长安区': ['韦曲街道', '郭杜街道', '滦镇街道', '兴隆街道', '大兆街道', '鸣犊街道', '杜曲街道', '五台街道', '高桥街道', '引镇街道', '王莽街道', '子午街道', '太乙宫街道'],
+    '高陵区': ['鹿苑街道', '泾渭街道', '崇皇街道', '通远街道', '张卜街道', '湾子镇', '耿镇'],
+    '鄠邑区': ['甘亭街道', '余下街道', '祖庵镇', '秦渡镇', '草堂镇', '庞光镇', '蒋村镇', '涝店镇', '石井镇', '玉蝉镇'],
+    '蓝田县': ['蓝关街道', '洩湖镇', '华胥镇', '前卫镇', '汤峪镇', '焦岱镇', '玉山镇', '三里镇', '普化镇', '葛牌镇', '灞源镇', '孟村镇', '辋川镇'],
+    '周至县': ['二曲街道', '哑柏镇', '终南镇', '马召镇', '集贤镇', '楼观镇', '青化镇', '司竹镇', '尚村镇', '广济镇', '富仁镇', '竹峪镇'],
+    '西咸新区': ['三桥街道', '上林街道', '王寺街道', '斗门街道', '镐京街道', '建章路街道', '钓台街道', '高桥街道', '马王街道', '窑店街道', '正阳街道', '周陵街道', '渭城街道', '北杜街道', '底张街道', '永乐镇', '泾干街道', '崇文镇', '高庄镇'],
+    '高新区': ['丈八街道', '鱼化寨街道', '细柳街道', '兴隆街道', '东大街道', '五星街道', '灵沼街道'],
+    '经开区': ['张家堡街道', '未央湖街道', '草滩街道', '六村堡街道', '凤城一路街道', '凤城二路街道', '凤城三路街道', '凤城四路街道', '凤城五路街道', '凤城六路街道'],
+    '曲江新区': ['曲江街道', '雁南街道', '雁塔中路街道', '雁翔路街道'],
+    '浐灞国际港（浐灞片区）': ['广运潭街道', '雁鸣湖街道', '新筑街道', '浐灞大道街道'],
+    '浐灞国际港（港务片区）': ['新筑街道', '港务西路街道', '港务东路街道', '新合街道'],
+    '航天基地': ['航天大道街道', '东长安街道', '神舟四路街道', '神舟五路街道']
+};
+
+// 允许用外部数据覆盖（若 data/streets.json 或 window.STREETS_DATA 存在）
+async function loadExternalStreets() {
+    try {
+        if (window && window.STREETS_DATA && typeof window.STREETS_DATA === 'object') {
+            Object.assign(STREET_DATA, window.STREETS_DATA);
+            return;
+        }
+        const resp = await fetch('data/streets.json', { cache: 'no-store' });
+        if (resp.ok) {
+            const ext = await resp.json();
+            if (ext && typeof ext === 'object') Object.assign(STREET_DATA, ext);
+        }
+    } catch (e) {
+        console.warn('外部街道数据未加载（可忽略）：', e.message || e);
+    }
+}
+
+function populateStreets(districtSelectId, streetSelectId) {
+    const districtSelect = document.getElementById(districtSelectId);
+    const streetSelect = document.getElementById(streetSelectId);
+    if (!districtSelect || !streetSelect) return;
+
+    const fill = () => {
+        const selectedDistrict = districtSelect.value;
+        const streets = STREET_DATA[selectedDistrict] || [];
+        streetSelect.innerHTML = '<option value="">请选择街道</option>';
+        streets.forEach(street => {
+            const option = document.createElement('option');
+            option.value = street;
+            option.textContent = street;
+            streetSelect.appendChild(option);
+        });
+        // 每次填充后清理错误提示
+        clearFieldError(streetSelect);
+    };
+
+    districtSelect.addEventListener('change', () => {
+        fill();
+        clearFieldError(districtSelect);
+    });
+    // 初始化时根据当前已选区填充一次
+    fill();
+}
+
+// ======= 表单校验与错误提示 =======
+function ensureErrorHolder(afterElem) {
+    // 在元素后方插入/复用一个错误提示容器
+    if (!afterElem) return null;
+    let holder = afterElem.nextElementSibling;
+    if (!holder || !holder.classList || !holder.classList.contains('field-error')) {
+        holder = document.createElement('div');
+        holder.className = 'field-error';
+        holder.style.color = '#e53e3e';
+        holder.style.fontSize = '12px';
+        holder.style.marginTop = '6px';
+        afterElem.parentNode.insertBefore(holder, afterElem.nextSibling);
+    }
+    return holder;
+}
+function showFieldError(elem, msg) {
+    if (!elem) return;
+    elem.style.borderColor = '#e53e3e';
+    elem.style.boxShadow = '0 0 0 1px #e53e3e';
+    const holder = ensureErrorHolder(elem);
+    if (holder) holder.textContent = msg || '此项为必填';
+}
+function clearFieldError(elem) {
+    if (!elem) return;
+    elem.style.borderColor = '';
+    elem.style.boxShadow = '';
+    const holder = elem.nextElementSibling;
+    if (holder && holder.classList && holder.classList.contains('field-error')) {
+        holder.textContent = '';
+    }
+}
+
+function validateStep2() {
+    const hd = document.getElementById('householdDistrict');
+    const hs = document.getElementById('householdStreet');
+    const rd = document.getElementById('residenceDistrict');
+    const rs = document.getElementById('residenceStreet');
+
+    let ok = true;
+
+    if (!hd || !hd.value) { showFieldError(hd, '请选择户籍所在区'); ok = false; }
+    if (!hs || !hs.value) { showFieldError(hs, '请选择户籍所在街道'); ok = false; }
+    if (!rd || !rd.value) { showFieldError(rd, '请选择实际居住区'); ok = false; }
+    if (!rs || !rs.value) { showFieldError(rs, '请选择实际居住街道'); ok = false; }
+
+    if (!ok) {
+        // 滚动到第一个错误
+        const firstError = document.querySelector('.field-error:not(:empty)');
+        if (firstError && typeof firstError.scrollIntoView === 'function') {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+    return ok;
+}
+
+// 输入时清除错误样式
+['householdDistrict','householdStreet','residenceDistrict','residenceStreet'].forEach(id => {
+    document.addEventListener('change', (e) => {
+        if (e.target && e.target.id === id) clearFieldError(e.target);
+    });
+});
+
+// ======= 可搜索下拉（轻量实现） =======
+function attachSearchableSelect(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    // 已经装配过则跳过
+    if (select.previousElementSibling && select.previousElementSibling.classList && select.previousElementSibling.classList.contains('search-input')) return;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'search-input';
+    input.placeholder = '搜索…(支持拼音/汉字)';
+    input.style.width = '100%';
+    input.style.margin = '6px 0';
+    input.style.padding = '8px 10px';
+    input.style.border = '1px solid #e2e8f0';
+    input.style.borderRadius = '6px';
+
+    select.parentNode.insertBefore(input, select);
+
+    const normalize = (s) => (s || '').toLowerCase();
+
+    input.addEventListener('input', () => {
+        const keyword = normalize(input.value.trim());
+        const options = Array.from(select.options);
+        options.forEach((opt, idx) => {
+            if (idx === 0) return; // 保留“请选择”
+            const txt = normalize(opt.textContent);
+            opt.hidden = keyword && !txt.includes(keyword);
+        });
+        // 如果当前选项被隐藏，则清空选择
+        if (select.selectedIndex > 0 && select.options[select.selectedIndex].hidden) {
+            select.selectedIndex = 0;
+            clearFieldError(select);
+        }
+    });
+}
+
 // ========== 条款级引用工具 ==========
 function findPolicyClausesByText(text) {
     if (!text || !window.POLICY_INDEX) return [];
@@ -100,8 +266,16 @@ document.addEventListener('DOMContentLoaded', () => {
     loadConfig();
     setupStepLogic();
     setupDragAndDrop();
-    setupInputValidation();
+        setupInputValidation();
     updateAdmissionPriority();
+    loadExternalStreets().then(() => {
+        populateStreets('householdDistrict', 'householdStreet');
+        populateStreets('residenceDistrict', 'residenceStreet');
+        attachSearchableSelect('householdDistrict');
+        attachSearchableSelect('householdStreet');
+        attachSearchableSelect('residenceDistrict');
+        attachSearchableSelect('residenceStreet');
+    });
     
     document.querySelectorAll('input[type="radio"]').forEach(radio => {
         radio.addEventListener('click', (e) => {
@@ -128,7 +302,11 @@ function loadConfig() {
     document.getElementById('apiKeyInput').value = CONFIG.apiKey;
     document.getElementById('appIdInput').value = CONFIG.appId;
     const providerSelect = document.getElementById('providerSelect');
-    if (providerSelect) providerSelect.value = CONFIG.provider;
+    if (providerSelect) {
+        providerSelect.value = CONFIG.provider;
+        providerSelect.addEventListener('change', updateProviderHelp);
+    }
+    updateProviderHelp();
     if (CONFIG.apiKey && CONFIG.appId) {
         testConfig(true);
     } else {
@@ -156,7 +334,21 @@ async function testConfig(isSilent = false) {
         showConfigStatus('正在测试连接...', 'info');
     }
     try {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const resp = await fetch('/api/ai/route', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                provider: CONFIG.provider || 'bailian',
+                action: 'chat',
+                prompt: 'Test', 
+                history: []
+            })
+        });
+        if (!resp.ok) {
+            const errorBody = await resp.json();
+            throw new Error(errorBody.details || 'Unknown API error');
+        }
+
         updateApiStatus(true);
         if (!isSilent) {
             showConfigStatus('连接成功！AI功能已激活', 'success');
@@ -165,8 +357,9 @@ async function testConfig(isSilent = false) {
     } catch (error) {
         updateApiStatus(false);
         if (!isSilent) {
-            showConfigStatus('连接失败，请检查API Key和APP ID', 'error');
+            showConfigStatus(`连接失败: ${error.message}`, 'error');
         }
+        console.error("Config test error:", error);
     }
 }
 
@@ -196,6 +389,37 @@ function showConfigStatus(message, type) {
     configStatus.className = `config-status ${type}`;
 }
 
+function updateProviderHelp() {
+    const provider = (document.getElementById('providerSelect')?.value) || 'bailian';
+    const help = document.getElementById('providerHelp');
+    if (!help) return;
+    const base = `
+      <strong>通用说明：</strong><br>
+      - 前端仅访问本站 <code>/api/ai/route</code>，由后端转发到所选模型提供商，避免跨域与地域限制。<br>
+      - 请在部署平台的环境变量中配置密钥，前端不保存密钥。<br>
+      - 如需移动端全国可用：建议国内节点部署后端并开启 HTTPS/CDN。<br>
+      <br>
+    `;
+    const map = {
+      bailian: base + `
+        <strong>阿里百炼/通义：</strong><br>
+        - 设置环境变量：<code>BAILIAN_API_KEY</code>、<code>BAILIAN_APP_ID</code><br>
+        - 控制台：<a href="https://bailian.console.aliyun.com" target="_blank">阿里云百炼控制台</a>
+      `,
+      openai: base + `
+        <strong>OpenAI：</strong><br>
+        - 设置环境变量：<code>OPENAI_API_KEY</code>（可选 <code>OPENAI_MODEL</code>，默认 gpt-4o-mini）<br>
+        - 建议通过本站后端转发，客户端不直连。
+      `,
+      deepseek: base + `
+        <strong>DeepSeek：</strong><br>
+        - 设置环境变量：<code>DEEPSEEK_API_KEY</code>（可选 <code>DEEPSEEK_MODEL</code>，默认 deepseek-chat）<br>
+        - 访问频繁时建议开启后端 Keep-Alive 与重试策略。
+      `
+    };
+    help.innerHTML = map[provider] || base;
+}
+
 
 // ========== 步骤导航逻辑 ==========
 let currentStep = 1;
@@ -222,7 +446,7 @@ function setupStepLogic() {
 
 function goToStep1() { showStep(1); }
 function goToStep2() { showStep(2); }
-function goToStep3() { showStep(3); }
+function goToStep3() { if (!validateStep2()) return; showStep(3); }
 function goToStep4() { showStep(4); }
 function goToStep5() { showStep(5); }
 
@@ -266,8 +490,20 @@ async function sendMessage() {
             const resp = await fetch('/api/ai/route', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ provider: CONFIG.provider || 'bailian', action: 'chat', prompt, history: chatHistory })
+                body: JSON.stringify({ 
+                    provider: CONFIG.provider || 'bailian',
+                    action: 'chat',
+                    prompt: prompt, 
+                    history: chatHistory,
+                    context: assessmentData // Pass assessment data as context
+                })
             });
+
+            if (!resp.ok) {
+                const errorBody = await resp.text();
+                throw new Error(`AI 服务返回错误 (状态: ${resp.status}): ${errorBody}`);
+            }
+            
             const data = await resp.json();
             const aiResponseText = data && data.text ? data.text : 'AI暂未返回有效结果（骨架模式）';
             hideTypingIndicator();
@@ -519,30 +755,28 @@ async function generateAIRecommendations(data) {
     try {
         const prompt = buildAIPrompt(data);
         console.log("AI Prompt (for debugging):", prompt);
-        // 模拟API调用，实际应替换为真实请求
-        const aiResponse = await new Promise(resolve => {
-            setTimeout(() => {
-                // 这是一个基于真实数据和用户画像的模拟回复
-                const mockAIResponse = {
-                    "recommendations": [
-                        { "type": "冲刺", "name": "西安高新一中初中校区", "reason": "根据您孩子优异的学业成绩和您的冒险精神，我们强烈推荐冲刺这所顶级名校，以最大化孩子的潜力。", "rate": "18%" },
-                        { "type": "稳妥", "name": "西北工业大学附属中学分校", "reason": "该校理科实力雄厚，与您孩子的学科倾向高度匹配，是一个非常可靠的优质选择。", "rate": "45%" },
-                        { "type": "保底", "name": "本地公办学校", "reason": `根据政策，这是您最稳妥的选择，确保孩子有学上。具体学校需参考 ${data.familyInfo.residenceDistrict} 的学区划分。`, "rate": "100%" }
-                    ],
-                    "timeline": [
-                        { "date": "即日 ~ 2025-05-31", "title": "深入研究目标学校", "content": "建议您访问已选出的冲刺和稳妥目标校的官网，参加开放日活动，深入了解其课程设置和校园文化，为最终决策做准备。" },
-                        { "date": "2025-07-11 ~ 2025-07-24", "title": "民办学校网上报名", "content": "登录市教育局指定平台，在规定时间内完成报名和志愿填报。 [来源: 2025年西安市义务教育阳光招生政策图解](https://www.xa.gov.cn/xxgk/zcjd/1949673041569017857.html)" }
-                    ],
-                    "advice": `您的核心策略应为“主攻顶级民办，守住公办底线”。您对风险有较高的承受能力，且孩子具备优秀的学术潜力，因此将主要精力放在研究和准备目标民办学校上是合理的。同时，必须深入了解${data.familyInfo.residenceDistrict}的公办统筹入学顺位规则，作为最终的保障。 [来源: 西安市2025年义务教育阳光招生政策解读](https://www.xa.gov.cn/hd/zxft/1934544315572879362.html)`
-                };
-                resolve(mockAIResponse);
-            }, 2000);
+        
+        const resp = await fetch('/api/ai/route', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                provider: CONFIG.provider || 'bailian',
+                action: 'recommend',
+                prompt: prompt
+            })
         });
+
+        if (!resp.ok) {
+            const errorBody = await resp.text();
+            throw new Error(`AI API request failed with status ${resp.status}: ${errorBody}`);
+        }
+
+        const aiResponse = await resp.json();
 
         renderAIRecommendations(aiResponse, data);
 
     } catch (error) {
-        schoolRecDiv.innerHTML = '<p style="color:red">AI推荐生成失败，请稍后重试或使用本地模式。</p>';
+        schoolRecDiv.innerHTML = '<p style="color:red">AI推荐生成失败，请检查网络或API配置后重试。</p>';
         console.error("AI Recommendation Error:", error);
         timelineDiv.innerHTML = '';
         policyDiv.innerHTML = '';

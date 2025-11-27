@@ -31,11 +31,9 @@ module.exports = async function handler(req, res) {
 
     const result = await api[action]({ prompt, history, context });
 
-    if (action === 'recommend') {
-      return res.status(200).json(result || { recommendations: [], timeline: [], advice: '' });
-    } else {
-      return res.status(200).json(result || { text: 'No content' });
-    }
+    res.setHeader('Content-Type', 'application/json');
+    return res.status(200).json(result);
+
   } catch (err) {
     console.error('AI route error:', err);
     return res.status(500).json({ error: 'Internal Server Error', details: String((err && err.message) || err) });
