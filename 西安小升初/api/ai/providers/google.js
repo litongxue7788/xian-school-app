@@ -46,7 +46,7 @@ function googleProvider() {
     });
   }
 
-  function_extract_text(data) {
+  function extract_text(data) {
     if (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
       return data.candidates[0].content.parts[0].text;
     }
@@ -58,7 +58,7 @@ function googleProvider() {
       const response = await _request(prompt);
       try {
         const data = JSON.parse(response.body);
-        const text = function_extract_text(data);
+        const text = extract_text(data);
         if (response.statusCode >= 200 && response.statusCode < 300 && text) {
           return { text: text };
         } else {
@@ -75,7 +75,7 @@ function googleProvider() {
       const response = await _request(prompt);
       try {
         const data = JSON.parse(response.body);
-        const text = function_extract_text(data);
+        const text = extract_text(data);
         if (response.statusCode >= 200 && response.statusCode < 300 && text) {
           try {
             return JSON.parse(text);
@@ -109,7 +109,7 @@ function googleProvider() {
         const response = await _request(prompt);
         try {
             const data = JSON.parse(response.body);
-            const text = function_extract_text(data);
+            const text = extract_text(data);
             if (response.statusCode >= 200 && response.statusCode < 300 && text) {
                 return { text: text };
             } else {
@@ -126,7 +126,7 @@ function googleProvider() {
         const response = await _request(prompt);
         try {
             const data = JSON.parse(response.body);
-            const text = function_extract_text(data);
+            const text = extract_text(data);
             if (response.statusCode >= 200 && response.statusCode < 300 && text) {
                 return { text: text };
             } else {

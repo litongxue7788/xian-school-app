@@ -11,6 +11,9 @@ module.exports = async function handler(req, res) {
       case 'bailian':
         adapter = require('./providers/bailian.js');
         break;
+      case 'google':
+        adapter = require('./providers/google.js');
+        break;
       case 'openai':
         adapter = require('./providers/openai.js');
         break;
