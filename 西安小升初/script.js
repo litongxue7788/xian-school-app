@@ -397,7 +397,7 @@ function updateProviderHelp() {
       <strong>通用说明：</strong><br>
       - 前端仅访问本站 <code>/api/ai/route</code>，由后端转发到所选模型提供商，避免跨域与地域限制。<br>
       - 请在部署平台的环境变量中配置密钥，前端不保存密钥。<br>
-      - 如需移动端全国可用：建议国内节点部署后端并开启 HTTPS/CDN。<br>
+      - 如需移动端全国可用：建议使用国内节点部署后端并开启 HTTPS/CDN；避免直连境外模型。<br>
       <br>
     `;
     const map = {
@@ -559,7 +559,12 @@ function showTypingIndicator() {
     const typingElem = document.createElement('div');
     typingElem.id = 'typingIndicator';
     typingElem.className = 'ai-message assistant';
-    typingElem.innerHTML = `\n        <div class="message-avatar">🐱</div>\n        <div class="message-content typing-indicator">\n            <span></span><span></span><span></span>\n        </div>\n    `;
+    typingElem.innerHTML = `
+        <div class="message-avatar">🐱</div>
+        <div class="message-content typing-indicator">
+            <span></span><span></span><span></span>
+        </div>
+    `;
     chatBody.appendChild(typingElem);
     chatBody.scrollTop = chatBody.scrollHeight;
 }
@@ -748,11 +753,6 @@ function generateLocalRecommendations(data) {
 }
 
 async function generateAIRecommendations(data) {
-    const schoolRecDiv = document.getElementById('schoolRecommendation');
-    const timelineDiv = document.getElementById('timeline');
-    const policyDiv = document.getElementById('policyAdvice');
-
-    try {
         const promptData = buildAIPrompt(data);
         console.log("AI Prompt (for debugging):", promptData);
         
@@ -856,132 +856,18 @@ function buildAIPrompt(data) {
 
     const policyContext = `\n\n== 2025年西安市义务教育招生入学工作通知 (核心政策) ==\n${POLICY_DATA}\n`;
 
-    return `\n你是一位顶级的西安小升初升学规划专家。你的所有回答都必须严格依据“2025年西安市义务教育招生入学工作通知”。请根据以下政策、数据、用户情况和**必须严格遵守的指令**，为他们生成一份专业、个性化的升学规划报告。${policyContext}\n\n== 官方资料引用列表 ==\n${citationContext}\n\n== 2025年民办初中官方招生计划 (你必须且只能从以下列表中选择学校) ==\n${availableSchools}\n\n== 用户信息 ==\n${userInfo}\n\n== 核心任务与指令 ==\n请严格按照以下JSON格式输出，禁止任何额外解释。\n\n1.  **\"recommendations\"**: 一个包含2-3个学校推荐对象的数组。\n    - **严格约束1**: 所有推荐的学校名称(\"name\")，必须**精确匹配**自上面提供的“招生计划列表”。禁止编造、缩写或使用列表之外的任何学校。\n    - **严格约束2**: 在决定学校的“冲刺”、“稳妥”分类时，必须将“预估摇号名额”作为核心量化指标。摇号名额越少，竞争越激烈，越应归为“冲刺”；名额越多，则越“稳妥”。\n    - **严格约束3**: 所有的推荐理由、日期、建议，都必须以“核心政策”为最终依据。\n    - 每个对象必须包含 \"type\" (从 \"冲刺\", \"稳妥\", \"保底\" 中选择), \"name\" (学校全名), \"reason\" (结合用户信息和学校的摇号名额，生成100字以内的推荐理由), \"rate\" (根据摇号名额和学校热度，预估一个大致的摇号率，例如 \"20%\")。\n\n2.  **\"timeline\"**: 一个包含1-2个关键时间点对象的数组，提供具体的行动建议。如果内容有政策依据，必须在content字段中用markdown格式附上来源，例如：[来源: 2025年西安市义务教育阳光招生政策图解]。\n\n3.  **\"advice\"**: 一个字符串，提供给家庭的核心升学策略总结，200字以内。如果内容有政策依据，必须在字符串末尾用markdown格式附上来源。\n\n== 输出格式 (必须严格遵守) ==\n{\n  \"recommendations\": [\n    { \"type\": \"冲刺\", \"name\": \"列表中的某个学校名\", \"reason\": \"...\", \"rate\": \"...%\" },\n    { \"type\": \"稳妥\", \"name\": \"列表中的另一个学校名\", \"reason\": \"...\", \"rate\": \"...%\" }\n  ],\n  \"timeline\": [\n    { \"date\": \"...\", \"title\": \"...\", \"content\": \"... [来源: 文件名]...\" }\n  ],
-  \"advice\": \"... [来源: 文件名]...\"\n}\n`;
+    return {
+        prompt: `
+你是一位顶级的西安小升初升学规划专家。你的所有回答都必须严格依据“2025年西安市义务教育招生入学工作通知”。请根据以下政策、数据、用户情况和**必须严格遵守的指令**，为他们生成一份专业、个性化的升学规划报告。${policyContext}\n\n== 官方资料引用列表 ==\n${citationContext}\n\n== 2025年民办初中官方招生计划 (你必须且只能从以下列表中选择学校) ==\n${availableSchools}\n\n== 用户信息 ==\n${userInfo}\n\n== 核心任务与指令 ==\n请严格按照以下JSON格式输出，禁止任何额外解释。\n\n1.  **"recommendations"**: 一个包含2-3个学校推荐对象的数组。\n    - **严格约束1**: 所有推荐的学校名称("name")，必须**精确匹配**自上面提供的“招生计划列表”。禁止编造、缩写或使用列表之外的任何学校。\n    - **严格约束2**: 在决定学校的“冲刺”、“稳妥”分类时，必须将“预估摇号名额”作为核心量化指标。摇号名额越少，竞争越激烈，越应归为“冲刺”；名额越多，则越“稳妥”。\n    - **严格约束3**: 所有的推荐理由、日期、建议，都必须以“核心政策”为最终依据。\n    - 每个对象必须包含 "type" (从 "冲刺", "稳妥", "保底" 中选择), "name" (学校全名), "reason" (结合用户信息和学校的摇号名额，生成100字以内的推荐理由), "rate" (根据摇号名额和学校热度，预估一个大致的摇号率，例如 "20%")。\n\n2.  **"timeline"**: 一个包含1-2个关键时间点对象的数组，提供具体的行动建议。如果内容有政策依据，必须在content字段中用markdown格式附上来源，例如：[来源: 2025年西安市义务教育招生政策图解]。\n\n3.  **"advice"**: 一个字符串，提供给家庭的核心升学策略总结，200字以内。如果内容有政策依据，必须在字符串末尾用markdown格式附上来源。\n\n== 输出格式 (必须严格遵守) ==\n{\n  "recommendations": [\n    { "type": "冲刺", "name": "列表中的某个学校名", "reason": "...", "rate": "...%" },\n    { "type": "稳妥", "name": "列表中的另一个学校名", "reason": "...", "rate": "...%" }\n  ],
+  "timeline": [
+    { "date": "...", "title": "...", "content": "... [来源: 文件名]..." }
+  ],
+  "advice": "... [来源: 文件名]..."
 }
-
-function resetAll() {
-    document.querySelectorAll('input[type="radio"]').forEach(r => r.checked = false);
-    document.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
-    document.querySelectorAll('select').forEach(s => s.selectedIndex = 0);
-    assessmentData = { scores: {}, familyInfo: {}, totalScore: 0 };
-    showStep(1);
-}
-
-function renderAbilityChart(scores) {
-    const ctx = document.getElementById('abilityChart').getContext('2d');
-    const labels = ['学业成绩', '综合素养', '学习习惯', '心理素质', '家庭支持', '学科倾向'];
-    const data = labels.map((_, i) => scores[`score${i + 1}`] || 0);
-
-    if (abilityChartInstance) {
-        abilityChartInstance.destroy();
-    }
-
-    abilityChartInstance = new Chart(ctx, {
-        type: 'radar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: '学生能力评估',
-                data: data,
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 2,
-                pointBackgroundColor: 'rgba(54, 162, 235, 1)',
-                pointBorderColor: '#fff',
-                pointHoverBackgroundColor: '#fff',
-                pointHoverBorderColor: 'rgba(54, 162, 235, 1)'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                r: {
-                    angleLines: {
-                        display: true
-                    },
-                    suggestedMin: 0,
-                    suggestedMax: 5,
-                    ticks: {
-                        stepSize: 1
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.r !== null) {
-                                label += context.parsed.r + ' 分';
-                            }
-                            return label;
-                        }
-                    }
-                }
-            }
-        }
-    });
-}
-
-// ========== 动态政策解读 ==========
-async function interpretPolicy() {
-    const interpretBtn = document.getElementById('interpretBtn');
-    const resultDiv = document.getElementById('interpretationResult');
-
-    if (!CONFIG.isConnected) {
-        resultDiv.innerHTML = `<p style="color: #e53e3e;">此功能需要连接AI增强模式。请点击页面顶部的“本地模式”按钮进行配置。</p>`;
-        resultDiv.style.display = 'block';
-        return;
-    }
-
-    interpretBtn.disabled = true;
-    interpretBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI正在解读中...';
-    resultDiv.style.display = 'block';
-    resultDiv.innerHTML = '<p>正在连接AI专家，请稍候...</p>';
-
-    const householdDistrict = document.getElementById('householdDistrict').value;
-    const residenceDistrict = document.getElementById('residenceDistrict').value;
-    const hasHouse = document.getElementById('hasHouse').value;
-    const priority = document.getElementById('admissionPriority').textContent;
-
-    const prompt = buildInterpretationPrompt(householdDistrict, residenceDistrict, hasHouse, priority);
-    console.log("Policy Interpretation Prompt (for debugging):", prompt);
-
-    try {
-        const resp = await fetch('/api/ai/route', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ provider: CONFIG.provider || 'bailian', action: 'interpret', prompt })
-        });
-        const dataResp = await resp.json();
-        const interpretation = dataResp && dataResp.text ? dataResp.text : 'AI暂未返回有效结果（骨架模式）';
-
-        const html = interpretation.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
-        const clauseBadge = formatClauseBadge(findPolicyClausesByText(householdDistrict + ' ' + residenceDistrict + ' ' + hasHouse + ' ' + priority));
-        resultDiv.innerHTML = `<p>${html}</p>${clauseBadge}`;
-
-    } catch (error) {
-        console.error("Policy Interpretation Error:", error);
-        resultDiv.innerHTML = '<p style="color: #e53e3e;">抱歉，AI解读失败，请稍后重试。</p>';
-    } finally {
-        interpretBtn.disabled = false;
-        interpretBtn.innerHTML = '<i class="fas fa-brain"></i> AI为你解读顺位';
-    }
-}
-
-function buildInterpretationPrompt(household, residence, house, priority) {
-    const userInfo = `户籍在 ${household}，居住在 ${residence}，房产情况是 ${house}，初步评估为 ${priority}。`;
-    const citationContext = Object.values(CITATION_DATA).map(c => `- ${c.title}: ${c.url.startsWith('http') ? c.url : BASE_URL + c.url}`).join('\n');
-
-    return `你是一位专业的西安小升初升学顾问。请严格依据下面提供的“2025年西安市义务教育招生入学工作通知”全文，并结合用户情况，用通俗易懂、有温度的语言，为用户解释他所处的“入学顺位”到底意味着什么，以及可能面临的真实情况和潜在风险。请直接输出解释内容，不要超过150字。在解释的结尾，必须根据政策内容判断，从“官方资料引用列表”中引用最相关的官方文件来源。\n\n== 2025年西安市义务教育招生入学工作通知 (核心政策) ==\n${POLICY_DATA}\n\n== 官方资料引用列表 ==\n${citationContext}\n\n== 用户情况 ==\n${userInfo}`;
+`,
+        history: [], // 在这个场景下，我们不需要独立的对话历史
+        context: data // 将完整的用户数据作为上下文
+    };
 }
 
 // ========== 学生能力画像分析 ==========
