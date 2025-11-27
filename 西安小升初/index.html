@@ -29,6 +29,7 @@
         <input type="text" class="config-input" id="appIdInput" placeholder="APP ID（仅百炼需要）">
         <select class="config-input" id="providerSelect">
             <option value="bailian">阿里百炼/通义</option>
+            <option value="google">Google Gemini</option>
             <option value="openai">OpenAI</option>
             <option value="deepseek">DeepSeek</option>
         </select>
@@ -44,13 +45,17 @@
             - 需设置环境变量：<code>BAILIAN_API_KEY</code>、<code>BAILIAN_APP_ID</code><br>
             - 控制台：<a href="https://bailian.console.aliyun.com" target="_blank">阿里云百炼控制台</a><br>
             <br>
+            <strong>Google Gemini：</strong><br>
+            - 需设置环境变量：<code>GOOGLE_API_KEY</code><br>
+            - 建议通过本站后端转发以获得最佳体验。<br>
+            <br>
             <strong>OpenAI：</strong><br>
             - 需设置：<code>OPENAI_API_KEY</code>（可选 <code>OPENAI_MODEL</code>，默认 gpt-4o-mini）<br>
             - 建议通过本站后端转发，客户端不直连，避免被移动网络/地域策略影响。<br>
             <br>
             <strong>DeepSeek：</strong><br>
             - 需设置：<code>DEEPSEEK_API_KEY</code>（可选 <code>DEEPSEEK_MODEL</code>，默认 deepseek-chat）<br>
-            - 访问频繁时建议开启后端 Keep-Alive 与重试策略。
+            - 访问频繁时建议开启后端 Keep-Alive 与重试策略。<br>
         </div>
     </div>
 
