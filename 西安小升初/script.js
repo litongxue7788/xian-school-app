@@ -238,6 +238,15 @@ function attachSearchableSelect(selectId) {
     });
 }
 
+function ensureSearchInputs() {
+    ['householdDistrict','householdStreet','residenceDistrict','residenceStreet'].forEach(id => {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const has = sel.previousElementSibling && sel.previousElementSibling.classList && sel.previousElementSibling.classList.contains('search-input');
+        if (!has) attachSearchableSelect(id);
+    });
+}
+
 // ========== 条款级引用工具 ==========
 function findPolicyClausesByText(text) {
     if (!text || !window.POLICY_INDEX) return [];
@@ -361,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
         attachSearchableSelect('householdStreet');
         attachSearchableSelect('residenceDistrict');
         attachSearchableSelect('residenceStreet');
+        ensureSearchInputs();
     });
     
     // 自动跳到下一步的逻辑
@@ -524,6 +534,10 @@ function showStep(step) {
     
     const progress = (step - 1) / 5 * 100;
     document.getElementById('progressBar').style.width = `${progress}%`;
+
+    if (step === 2) {
+        ensureSearchInputs();
+    }
 }
 
 function setupStepLogic() {
