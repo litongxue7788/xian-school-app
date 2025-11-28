@@ -1101,52 +1101,6 @@ function restoreConfig() {
     }
 }
 
-// 绑定所有按钮事件
-function bindButtonEvents() {
-    console.log('绑定按钮事件...');
-    
-    // 绑定本地模式按钮 - 修复选择器
-    const localModeBtn = document.querySelector('.config-btn.secondary');
-    if (localModeBtn) {
-        // 移除旧的事件监听器
-        localModeBtn.replaceWith(localModeBtn.cloneNode(true));
-        // 重新获取元素并绑定事件
-        const newLocalModeBtn = document.querySelector('.config-btn.secondary');
-        newLocalModeBtn.addEventListener('click', useLocalMode);
-        console.log('本地模式按钮已绑定');
-    } else {
-        console.log('未找到本地模式按钮');
-    }
-    
-    // 绑定保存配置按钮
-    const saveConfigBtn = document.querySelector('.config-btn:not(.secondary)');
-    if (saveConfigBtn) {
-        saveConfigBtn.addEventListener('click', saveAndTestConfig);
-    }
-    
-    // 绑定步骤指示器
-    document.querySelectorAll('.step').forEach(step => {
-        step.addEventListener('click', function() {
-            const stepNumber = this.id.replace('step', '').replace('-indicator', '');
-            showStep(parseInt(stepNumber));
-        });
-    });
-    
-    // 绑定快捷操作按钮
-    document.querySelectorAll('.quick-action-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const text = this.textContent;
-            quickAction(text);
-        });
-    });
-    
-    // 绑定AI解读按钮
-    const interpretBtn = document.getElementById('interpretBtn');
-    if (interpretBtn) {
-        interpretBtn.addEventListener('click', interpretPolicy);
-    }
-}
-
 // 初始化所有功能
 function initializeApp() {
     console.log('正在初始化应用...');
@@ -1166,10 +1120,7 @@ function initializeApp() {
 
     // 为聊天窗口添加拖动功能
     setupChatDrag();
-    
-    // 绑定按钮事件
-    bindButtonEvents();
-    
+        
     console.log('应用初始化完成');
 }
 
