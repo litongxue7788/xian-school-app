@@ -1,135 +1,64 @@
-我有const https = require('https');
+async function callBailianAPI(message, apiKey, appId = '') {
+    try {
+        console.log('调用阿里百炼API...');
+        
+        if (!apiKey) {
+            throw new Error('API Key不能为空');
+        }
 
-function bailianProvider() {
-  const API_KEY = process.env.BAILIAN_API_KEY;
-  const APP_ID = process.env.BAILIAN_APP_ID;
-
-  async function _request(prompt, history = []) {
-    if (!API_KEY || !APP_ID) {
-      throw new Error('BAILIAN_API_KEY and BAILIAN_APP_ID must be set in environment variables.');
-    }
-
-    const postData = JSON.stringify({
-      app_id: APP_ID,
-      prompt: prompt,
-      history: history,
-      stream: false
-    });
-
-    const options = {
-      hostname: 'bailian.aliyuncs.com',
-      path: '/v2/app/completions',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Length': Buffer.byteLength(postData)
-      }
-    };
-
-    return new Promise((resolve, reject) => {
-      const req = https.request(options, (res) => {
-        let data = '';
-        res.on('data', (chunk) => {
-          data += chunk;
+        const response = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: "qwen-plus",
+                messages: [
+                    {
+                        role: "system",
+                        content: "你是一个专业的西安小升初政策咨询助手，请基于2025年西安义务教育招生政策提供准确、有用的信息。回答要简洁明了，重点突出。"
+                    },
+                    {
+                        role: "user",
+                        content: message
+                    }
+                ],
+                max_tokens: 2000,
+                temperature: 0.7,
+                stream: false
+            })
         });
-        res.on('end', () => {
-          // Do not check status code here, just resolve with the full response
-          resolve({ statusCode: res.statusCode, body: data });
-        });
-      });
 
-      req.on('error', (e) => {
-        reject(e);
-      });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`阿里百炼API错误: ${response.status} - ${errorText}`);
+        }
 
-      req.write(postData);
-      req.end();
-    });
-  }
-
-  return {
-    chat: async ({ prompt, history }) => {
-      const response = await _request(prompt, history);
-      try {
-        const data = JSON.parse(response.body);
-        if (response.statusCode >= 200 && response.statusCode < 300 && data.Success && data.Data && data.Data.Text) {
-          return { text: data.Data.Text };
+        const data = await response.json();
+        
+        if (data.choices && data.choices[0] && data.choices[0].message) {
+            return data.choices[0].message.content;
         } else {
-          console.error('Bailian API error for chat:', data);
-          return { text: `AI服务返回错误，状态码: ${response.statusCode}, 错误信息: ${data.Message || response.body}` };
+            throw new Error('阿里百炼返回格式异常');
         }
-      } catch (e) {
-        console.error('Failed to parse Bailian response for chat:', e, response.body);
-        return { text: `AI服务响应解析失败: ${response.body}` };
-      }
-    },
 
-    recommend: async ({ prompt }) => {
-        const response = await _request(prompt);
-        try {
-            const data = JSON.parse(response.body);
-            if (response.statusCode >= 200 && response.statusCode < 300 && data.Success && data.Data && data.Data.Text) {
-                try {
-                    return JSON.parse(data.Data.Text);
-                } catch(e) {
-                    console.error("Failed to parse AI recommendation JSON from text:", e, data.Data.Text);
-                    return {
-                        recommendations: [],
-                        timeline: [],
-                        advice: "AI返回了无法解析的JSON格式，请检查模型输出。"
-                    };
-                }
-            } else {
-                console.error('Bailian API error for recommend:', data);
-                return {
-                    recommendations: [],
-                    timeline: [],
-                    advice: `AI服务返回错误: ${data.Message || response.body}`
-                };
-            }
-        } catch (e) {
-            console.error('Failed to parse Bailian response for recommend:', e, response.body);
-            return {
-                recommendations: [],
-                timeline: [],
-                advice: `AI服务响应解析失败: ${response.body}`
-            };
-        }
-    },
-
-    analyze: async ({ prompt }) => {
-        const response = await _request(prompt);
-        try {
-            const data = JSON.parse(response.body);
-            if (response.statusCode >= 200 && response.statusCode < 300 && data.Success && data.Data && data.Data.Text) {
-                return { text: data.Data.Text };
-            } else {
-                console.error('Bailian API error for analyze:', data);
-                return { text: `AI服务返回错误: ${data.Message || response.body}` };
-            }
-        } catch (e) {
-            console.error('Failed to parse Bailian response for analyze:', e, response.body);
-            return { text: `AI服务响应解析失败: ${response.body}` };
-        }
-    },
-
-    interpret: async ({ prompt }) => {
-        const response = await _request(prompt);
-        try {
-            const data = JSON.parse(response.body);
-            if (response.statusCode >= 200 && response.statusCode < 300 && data.Success && data.Data && data.Data.Text) {
-                return { text: data.Data.Text };
-            } else {
-                console.error('Bailian API error for interpret:', data);
-                return { text: `AI服务返回错误: ${data.Message || response.body}` };
-            }
-        } catch (e) {
-            console.error('Failed to parse Bailian response for interpret:', e, response.body);
-            return { text: `AI服务响应解析失败: ${response.body}` };
-        }
+    } catch (error) {
+        console.error('阿里百炼调用失败:', error);
+        throw new Error('阿里百炼服务异常: ' + error.message);
     }
-  };
+}
+
+// 为了兼容性，也提供旧版接口
+function bailianProvider() {
+    return {
+        chat: async ({ prompt, history, context = {} }) => {
+            const apiKey = context.apiKey;
+            const result = await callBailianAPI(prompt, apiKey);
+            return { text: result };
+        }
+    };
 }
 
 module.exports = bailianProvider;
+module.exports.callAPI = callBailianAPI;
