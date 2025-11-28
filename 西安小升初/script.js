@@ -154,7 +154,7 @@ function getPinyinInitials(text) {
 const CONFIG = {
     apiKey: '',
     appId: '',
-    provider: localStorage.getItem('aiProvider') || 'bailian',
+    provider: 'bailian',
     isConnected: false,
     isChatInitialized: false
 };
@@ -187,6 +187,182 @@ const STREET_DATA = {
     '浐灞国际港(港务片区)': ['新筑街道', '港务西路街道', '港务东路街道', '新合街道'],
     '航天基地': ['航天大道街道', '东长安街道', '神舟四路街道', '神舟五路街道']
 };
+
+// ========== API调用函数 ==========
+
+// API调用函数 - 支持所有大模型
+async function callAIAPI(message, provider, apiKey, appId = '') {
+    try {
+        // 如果是本地模式，直接返回模拟响应
+        if (!CONFIG.isConnected) {
+            return "当前处于本地模式，AI功能不可用。请切换到在线模式。";
+        }
+
+        let response;
+        switch (provider) {
+            case 'bailian':
+                response = await callBailianAPI(message, apiKey, appId);
+                break;
+            case 'openai':
+                response = await callOpenAIAPI(message, apiKey);
+                break;
+            case 'google':
+                response = await callGoogleAPI(message, apiKey);
+                break;
+            case 'deepseek':
+                response = await callDeepSeekAPI(message, apiKey);
+                break;
+            default:
+                throw new Error('不支持的AI提供商');
+        }
+        
+        return response;
+    } catch (error) {
+        console.error('API调用失败:', error);
+        throw new Error(`AI服务调用失败：${error.message}`);
+    }
+}
+
+// DeepSeek API调用 - 根据官方文档修正
+async function callDeepSeekAPI(message, apiKey) {
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: "deepseek-chat",
+            messages: [
+                {
+                    role: "system",
+                    content: "你是一个专业的西安小升初政策咨询助手，请基于2025年西安义务教育招生政策提供准确、有用的信息。"
+                },
+                {
+                    role: "user",
+                    content: message
+                }
+            ],
+            stream: false,
+            max_tokens: 2000,
+            temperature: 0.7
+        })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`DeepSeek API错误: ${response.status} ${errorData.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+        return data.choices[0].message.content;
+    } else {
+        console.error('DeepSeek API响应结构异常:', data);
+        throw new Error('DeepSeek API返回了异常响应结构');
+    }
+}
+
+// 阿里百炼API调用
+async function callBailianAPI(message, apiKey, appId) {
+    const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'X-DashScope-AppId': appId,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: "qwen-plus",
+            input: {
+                messages: [
+                    {
+                        role: "system",
+                        content: "你是一个专业的西安小升初政策咨询助手，请基于2025年西安义务教育招生政策提供准确、有用的信息。"
+                    },
+                    {
+                        role: "user", 
+                        content: message
+                    }
+                ]
+            },
+            parameters: {
+                result_format: "message"
+            }
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`阿里百炼API错误: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.output.text;
+}
+
+// OpenAI API调用
+async function callOpenAIAPI(message, apiKey) {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+                {
+                    role: "system",
+                    content: "你是一个专业的西安小升初政策咨询助手，请基于2025年西安义务教育招生政策提供准确、有用的信息。"
+                },
+                {
+                    role: "user",
+                    content: message
+                }
+            ],
+            max_tokens: 2000,
+            temperature: 0.7
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`OpenAI API错误: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+}
+
+// Google Gemini API调用
+async function callGoogleAPI(message, apiKey) {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            contents: [{
+                parts: [{
+                    text: `你是一个专业的西安小升初政策咨询助手，请基于2025年西安义务教育招生政策提供准确、有用的信息。
+
+用户问题：${message}`
+                }]
+            }],
+            generationConfig: {
+                maxOutputTokens: 2000,
+                temperature: 0.7
+            }
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`Google Gemini API错误: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.candidates[0].content.parts[0].text;
+}
 
 // ========== 核心功能函数 ==========
 
@@ -264,11 +440,11 @@ function toggleConfigPanel() {
     }
 }
 
-// 切换到本地模式 - 修复版本
+// 切换到本地模式
 function useLocalMode() {
     console.log('切换到本地模式');
     
-    // 更新配置
+    // 只更新连接状态，保留所有API配置
     CONFIG.isConnected = false;
     
     // 更新状态显示
@@ -294,14 +470,16 @@ function useLocalMode() {
     }
     
     // 显示成功消息
-    alert('已切换到本地模式。AI相关功能将不可用。');
+    alert('已切换到本地模式。AI相关功能将不可用，但所有API配置已保存。');
     
     // 保存到本地存储
-    localStorage.setItem('aiProvider', 'local');
+    localStorage.setItem('aiMode', 'local');
+    
+    console.log('本地模式切换完成，所有API配置已保留');
 }
 
 // 发送消息函数
-function sendMessage() {
+async function sendMessage() {
     const chatInput = document.getElementById('chatInput');
     const message = chatInput.value.trim();
     if (!message) return;
@@ -311,20 +489,125 @@ function sendMessage() {
         return;
     }
     
-    // 这里添加实际的消息发送逻辑
-    console.log('发送消息:', message);
+    // 显示用户消息
+    addMessageToChat('user', message);
     chatInput.value = '';
+    
+    try {
+        // 显示加载状态
+        showLoadingIndicator();
+        
+        // 调用API
+        const response = await callAIAPI(
+            message, 
+            CONFIG.provider, 
+            CONFIG.apiKey, 
+            CONFIG.appId
+        );
+        
+        // 隐藏加载状态
+        hideLoadingIndicator();
+        
+        // 显示AI回复
+        addMessageToChat('assistant', response);
+        
+    } catch (error) {
+        // 隐藏加载状态
+        hideLoadingIndicator();
+        
+        // 显示错误消息
+        addMessageToChat('assistant', `抱歉，出现错误：${error.message}`);
+        console.error('发送消息错误:', error);
+    }
+}
+
+// 添加消息到聊天窗口
+function addMessageToChat(role, content) {
+    const chatBody = document.getElementById('chatBody');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `ai-message ${role}`;
+    
+    if (role === 'user') {
+        messageDiv.innerHTML = `
+            <div class="message-avatar">👤</div>
+            <div class="message-content">${content}</div>
+        `;
+    } else {
+        messageDiv.innerHTML = `
+            <div class="message-avatar">🐱</div>
+            <div class="message-content">
+                ${content}
+                <div class="source-info">
+                    <span class="trust-badge trust-verified">AI生成</span>
+                    基于2025年西安小升初政策分析
+                </div>
+            </div>
+        `;
+    }
+    
+    chatBody.appendChild(messageDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+// 显示加载指示器
+function showLoadingIndicator() {
+    const chatBody = document.getElementById('chatBody');
+    const loadingDiv = document.createElement('div');
+    loadingDiv.id = 'loading-indicator';
+    loadingDiv.className = 'ai-message assistant';
+    loadingDiv.innerHTML = `
+        <div class="message-avatar">🐱</div>
+        <div class="message-content">
+            <div class="ai-loading-spinner" style="width:20px;height:20px;"></div>
+            正在思考中...
+        </div>
+    `;
+    chatBody.appendChild(loadingDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+// 隐藏加载指示器
+function hideLoadingIndicator() {
+    const loadingDiv = document.getElementById('loading-indicator');
+    if (loadingDiv) {
+        loadingDiv.remove();
+    }
 }
 
 // 快捷操作
-function quickAction(text) {
+async function quickAction(text) {
     if (!CONFIG.isConnected) {
         alert(`快捷操作 "${text}" 在本地模式下不可用。请切换到在线模式。`);
         return;
     }
     
-    console.log('快捷操作:', text);
-    // 这里添加快捷操作的实际逻辑
+    try {
+        showLoadingIndicator();
+        
+        let question = text;
+        // 根据快捷操作类型优化问题
+        if (text === '2026年小升初时间安排') {
+            question = "请预测2026年西安小升初的时间安排和重要节点，包括报名时间、摇号时间、录取时间等";
+        } else if (text === '民办学校有哪些') {
+            question = "请列出西安市主要的民办初中学校，包括学校特色、招生计划和大致位置";
+        } else if (text === '摇号政策') {
+            question = "请详细解释西安市民办初中摇号政策的具体流程、规则和注意事项";
+        }
+        
+        const response = await callAIAPI(
+            question, 
+            CONFIG.provider, 
+            CONFIG.apiKey, 
+            CONFIG.appId
+        );
+        
+        hideLoadingIndicator();
+        addMessageToChat('assistant', response);
+        
+    } catch (error) {
+        hideLoadingIndicator();
+        addMessageToChat('assistant', `抱歉，出现错误：${error.message}`);
+    }
 }
 
 // 处理按键事件
@@ -335,14 +618,44 @@ function handleKeyPress(event) {
 }
 
 // AI解读政策
-function interpretPolicy() {
+async function interpretPolicy() {
     if (!CONFIG.isConnected) {
         alert('AI解读功能在本地模式下不可用。请切换到在线模式。');
         return;
     }
     
-    console.log('AI解读政策功能');
-    // 这里添加AI解读的实际逻辑
+    try {
+        showLoadingIndicator();
+        
+        const question = "请详细解读西安市小升初的入学顺位政策，包括房户一致、集体户、租房等不同情况的入学顺序";
+        const response = await callAIAPI(
+            question, 
+            CONFIG.provider, 
+            CONFIG.apiKey, 
+            CONFIG.appId
+        );
+        
+        hideLoadingIndicator();
+        
+        // 显示解读结果
+        const interpretationResult = document.getElementById('interpretationResult');
+        if (interpretationResult) {
+            interpretationResult.innerHTML = `
+                <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #3b82f6;">
+                    <h4 style="margin: 0 0 10px 0; color: #1e40af;">🤖 AI政策解读</h4>
+                    <div style="line-height: 1.6; color: #374151;">${response}</div>
+                    <div style="margin-top: 10px; font-size: 12px; color: #6b7280;">
+                        <span class="trust-badge trust-verified">AI生成</span> 
+                        基于${CONFIG.provider}模型分析，仅供参考
+                    </div>
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        hideLoadingIndicator();
+        alert(`AI解读失败：${error.message}`);
+    }
 }
 
 // 生成报告
@@ -492,8 +805,62 @@ function resetAll() {
 }
 
 // 保存并测试配置
-function saveAndTestConfig() {
-    alert('此功能在本地模式下不可用。请切换到在线模式。');
+async function saveAndTestConfig() {
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const appIdInput = document.getElementById('appIdInput');
+    const providerSelect = document.getElementById('providerSelect');
+    
+    const apiKey = apiKeyInput.value.trim();
+    const appId = appIdInput.value.trim();
+    const provider = providerSelect.value;
+    
+    if (!apiKey) {
+        alert('请输入API Key');
+        return;
+    }
+    
+    if (provider === 'bailian' && !appId) {
+        alert('阿里百炼需要提供App ID');
+        return;
+    }
+    
+    try {
+        // 测试API连接
+        const testMessage = '你好，请回复"连接成功"';
+        const response = await callAIAPI(testMessage, provider, apiKey, appId);
+        
+        // 保存配置
+        CONFIG.apiKey = apiKey;
+        CONFIG.appId = appId;
+        CONFIG.provider = provider;
+        CONFIG.isConnected = true;
+        
+        // 更新状态显示
+        const statusText = document.getElementById('statusText');
+        const apiStatus = document.getElementById('apiStatus');
+        const chatApiStatus = document.getElementById('chatApiStatus');
+        
+        if (statusText) statusText.textContent = `${provider} 已连接`;
+        if (apiStatus) apiStatus.className = 'api-status connected';
+        if (chatApiStatus) chatApiStatus.textContent = `${provider} 在线`;
+        
+        // 保存到本地存储
+        localStorage.setItem('aiProvider', provider);
+        localStorage.setItem('aiApiKey', apiKey);
+        localStorage.setItem('aiAppId', appId);
+        localStorage.setItem('aiMode', 'online');
+        
+        alert('配置保存成功！AI功能已启用。');
+        
+        // 关闭配置面板
+        const configPanel = document.getElementById('configPanel');
+        if (configPanel) {
+            configPanel.classList.remove('active');
+        }
+        
+    } catch (error) {
+        alert(`配置测试失败：${error.message}`);
+    }
 }
 
 // ======= 表单校验与错误提示 =======
@@ -695,9 +1062,91 @@ function setupChatDrag() {
     });
 }
 
+// 恢复配置
+function restoreConfig() {
+    const savedProvider = localStorage.getItem('aiProvider');
+    const savedApiKey = localStorage.getItem('aiApiKey');
+    const savedAppId = localStorage.getItem('aiAppId');
+    const savedMode = localStorage.getItem('aiMode');
+    
+    if (savedProvider && savedApiKey) {
+        CONFIG.provider = savedProvider;
+        CONFIG.apiKey = savedApiKey;
+        CONFIG.appId = savedAppId || '';
+        CONFIG.isConnected = (savedMode === 'online');
+        
+        // 更新UI显示
+        const statusText = document.getElementById('statusText');
+        const apiStatus = document.getElementById('apiStatus');
+        const chatApiStatus = document.getElementById('chatApiStatus');
+        
+        if (CONFIG.isConnected) {
+            if (statusText) statusText.textContent = `${savedProvider} 已连接`;
+            if (apiStatus) apiStatus.className = 'api-status connected';
+            if (chatApiStatus) chatApiStatus.textContent = `${savedProvider} 在线`;
+        } else {
+            if (statusText) statusText.textContent = '本地模式';
+            if (apiStatus) apiStatus.className = 'api-status local';
+            if (chatApiStatus) chatApiStatus.textContent = '本地模式';
+        }
+        
+        // 填充输入框
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const appIdInput = document.getElementById('appIdInput');
+        const providerSelect = document.getElementById('providerSelect');
+        
+        if (apiKeyInput) apiKeyInput.value = savedApiKey;
+        if (appIdInput) appIdInput.value = savedAppId || '';
+        if (providerSelect) providerSelect.value = savedProvider;
+    }
+}
+
+// 绑定所有按钮事件
+function bindButtonEvents() {
+    console.log('绑定按钮事件...');
+    
+    // 绑定本地模式按钮
+    const localModeBtn = document.querySelector('.config-btn.secondary');
+    if (localModeBtn) {
+        localModeBtn.addEventListener('click', useLocalMode);
+        console.log('本地模式按钮已绑定');
+    }
+    
+    // 绑定保存配置按钮
+    const saveConfigBtn = document.querySelector('.config-btn:not(.secondary)');
+    if (saveConfigBtn) {
+        saveConfigBtn.addEventListener('click', saveAndTestConfig);
+    }
+    
+    // 绑定步骤指示器
+    document.querySelectorAll('.step').forEach(step => {
+        step.addEventListener('click', function() {
+            const stepNumber = this.id.replace('step', '').replace('-indicator', '');
+            showStep(parseInt(stepNumber));
+        });
+    });
+    
+    // 绑定快捷操作按钮
+    document.querySelectorAll('.quick-action-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const text = this.textContent;
+            quickAction(text);
+        });
+    });
+    
+    // 绑定AI解读按钮
+    const interpretBtn = document.getElementById('interpretBtn');
+    if (interpretBtn) {
+        interpretBtn.addEventListener('click', interpretPolicy);
+    }
+}
+
 // 初始化所有功能
 function initializeApp() {
     console.log('正在初始化应用...');
+    
+    // 恢复配置
+    restoreConfig();
     
     // 初始化步骤显示
     showStep(1);
@@ -711,6 +1160,9 @@ function initializeApp() {
 
     // 为聊天窗口添加拖动功能
     setupChatDrag();
+    
+    // 绑定按钮事件
+    bindButtonEvents();
     
     console.log('应用初始化完成');
 }
