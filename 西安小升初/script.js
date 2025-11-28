@@ -440,7 +440,7 @@ function toggleConfigPanel() {
     }
 }
 
-// 切换到本地模式
+// 切换到本地模式 - 修复版本
 function useLocalMode() {
     console.log('切换到本地模式');
     
@@ -1105,11 +1105,17 @@ function restoreConfig() {
 function bindButtonEvents() {
     console.log('绑定按钮事件...');
     
-    // 绑定本地模式按钮
+    // 绑定本地模式按钮 - 修复选择器
     const localModeBtn = document.querySelector('.config-btn.secondary');
     if (localModeBtn) {
-        localModeBtn.addEventListener('click', useLocalMode);
+        // 移除旧的事件监听器
+        localModeBtn.replaceWith(localModeBtn.cloneNode(true));
+        // 重新获取元素并绑定事件
+        const newLocalModeBtn = document.querySelector('.config-btn.secondary');
+        newLocalModeBtn.addEventListener('click', useLocalMode);
         console.log('本地模式按钮已绑定');
+    } else {
+        console.log('未找到本地模式按钮');
     }
     
     // 绑定保存配置按钮
