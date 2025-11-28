@@ -440,11 +440,11 @@ function toggleConfigPanel() {
     }
 }
 
-// 切换到本地模式 - 修复版本
+// 切换到本地模式 - 完全修复版本
 function useLocalMode() {
     console.log('切换到本地模式');
     
-    // 只更新连接状态，保留所有API配置
+    // 更新连接状态
     CONFIG.isConnected = false;
     
     // 更新状态显示
@@ -456,6 +456,7 @@ function useLocalMode() {
     const apiStatus = document.getElementById('apiStatus');
     if (apiStatus) {
         apiStatus.className = 'api-status local';
+        apiStatus.textContent = '本地模式';
     }
 
     const chatApiStatus = document.getElementById('chatApiStatus');
@@ -465,17 +466,17 @@ function useLocalMode() {
 
     // 关闭配置面板
     const configPanel = document.getElementById('configPanel');
-    if (configPanel && configPanel.classList.contains('active')) {
+    if (configPanel) {
         configPanel.classList.remove('active');
     }
     
-    // 显示成功消息
-    alert('已切换到本地模式。AI相关功能将不可用，但所有API配置已保存。');
-    
-    // 保存到本地存储
+    // 保存到本地存储 - 确保设置正确的模式
     localStorage.setItem('aiMode', 'local');
     
-    console.log('本地模式切换完成，所有API配置已保留');
+    // 显示成功消息
+    alert('已切换到本地模式。AI相关功能将不可用。');
+    
+    console.log('本地模式切换完成');
 }
 
 // 发送消息函数
@@ -1062,43 +1063,65 @@ function setupChatDrag() {
     });
 }
 
-// 恢复配置
+// 恢复配置 - 修复版本
 function restoreConfig() {
-    const savedProvider = localStorage.getItem('aiProvider');
-    const savedApiKey = localStorage.getItem('aiApiKey');
-    const savedAppId = localStorage.getItem('aiAppId');
-    const savedMode = localStorage.getItem('aiMode');
+    const savedProvider = localStorage.getItem('aiProvider') || 'bailian';
+    const savedApiKey = localStorage.getItem('aiApiKey') || '';
+    const savedAppId = localStorage.getItem('aiAppId') || '';
+    const savedMode = localStorage.getItem('aiMode') || 'local';
     
-    if (savedProvider && savedApiKey) {
+    console.log('恢复配置:', { savedProvider, savedApiKey: savedApiKey ? '已设置' : '未设置', savedMode });
+    
+    // 明确检查是否为本地模式
+    const isLocalMode = savedMode === 'local' || !savedApiKey;
+    
+    if (!isLocalMode && savedApiKey) {
+        // 在线模式
         CONFIG.provider = savedProvider;
         CONFIG.apiKey = savedApiKey;
-        CONFIG.appId = savedAppId || '';
-        CONFIG.isConnected = (savedMode === 'online');
+        CONFIG.appId = savedAppId;
+        CONFIG.isConnected = true;
         
         // 更新UI显示
         const statusText = document.getElementById('statusText');
         const apiStatus = document.getElementById('apiStatus');
         const chatApiStatus = document.getElementById('chatApiStatus');
         
-        if (CONFIG.isConnected) {
-            if (statusText) statusText.textContent = `${savedProvider} 已连接`;
-            if (apiStatus) apiStatus.className = 'api-status connected';
-            if (chatApiStatus) chatApiStatus.textContent = `${savedProvider} 在线`;
-        } else {
-            if (statusText) statusText.textContent = '本地模式';
-            if (apiStatus) apiStatus.className = 'api-status local';
-            if (chatApiStatus) chatApiStatus.textContent = '本地模式';
+        if (statusText) statusText.textContent = `${savedProvider} 已连接`;
+        if (apiStatus) {
+            apiStatus.className = 'api-status connected';
+            apiStatus.textContent = `${savedProvider} 在线`;
         }
+        if (chatApiStatus) chatApiStatus.textContent = `${savedProvider} 在线`;
         
-        // 填充输入框
-        const apiKeyInput = document.getElementById('apiKeyInput');
-        const appIdInput = document.getElementById('appIdInput');
-        const providerSelect = document.getElementById('providerSelect');
+    } else {
+        // 本地模式
+        CONFIG.provider = savedProvider;
+        CONFIG.apiKey = savedApiKey;
+        CONFIG.appId = savedAppId;
+        CONFIG.isConnected = false;
         
-        if (apiKeyInput) apiKeyInput.value = savedApiKey;
-        if (appIdInput) appIdInput.value = savedAppId || '';
-        if (providerSelect) providerSelect.value = savedProvider;
+        // 更新UI显示为本地模式
+        const statusText = document.getElementById('statusText');
+        const apiStatus = document.getElementById('apiStatus');
+        const chatApiStatus = document.getElementById('chatApiStatus');
+        
+        if (statusText) statusText.textContent = '本地模式';
+        if (apiStatus) {
+            apiStatus.className = 'api-status local';
+            apiStatus.textContent = '本地模式';
+        }
+        if (chatApiStatus) chatApiStatus.textContent = '本地模式';
     }
+    
+    // 填充输入框（无论什么模式都填充）
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const appIdInput = document.getElementById('appIdInput');
+    const providerSelect = document.getElementById('providerSelect');
+    
+    if (apiKeyInput) apiKeyInput.value = CONFIG.apiKey;
+    if (appIdInput) appIdInput.value = CONFIG.appId || '';
+    if (providerSelect) providerSelect.value = CONFIG.provider;
 }
 
 // 初始化所有功能
