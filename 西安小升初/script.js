@@ -190,7 +190,7 @@ const STREET_DATA = {
 
 // ========== API调用函数 ==========
 
-// API调用函数 - 支持所有大模型
+// API调用函数 - 支持所有大模型（调用自己的后端API）
 async function callAIAPI(message, provider, apiKey, appId = '') {
     try {
         // 如果是本地模式，直接返回模拟响应
@@ -198,170 +198,38 @@ async function callAIAPI(message, provider, apiKey, appId = '') {
             return "当前处于本地模式，AI功能不可用。请切换到在线模式。";
         }
 
-        let response;
-        switch (provider) {
-            case 'bailian':
-                response = await callBailianAPI(message, apiKey, appId);
-                break;
-            case 'openai':
-                response = await callOpenAIAPI(message, apiKey);
-                break;
-            case 'google':
-                response = await callGoogleAPI(message, apiKey);
-                break;
-            case 'deepseek':
-                response = await callDeepSeekAPI(message, apiKey);
-                break;
-            default:
-                throw new Error('不支持的AI提供商');
-        }
+        console.log('调用AI API:', { provider, messageLength: message.length });
         
-        return response;
+        // 调用自己的后端API
+        const response = await fetch('/api/ai', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                provider: provider,
+                message: message,
+                apiKey: apiKey,
+                appId: appId
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `HTTP错误: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success && data.response) {
+            return data.response;
+        } else {
+            throw new Error('API返回格式异常');
+        }
     } catch (error) {
         console.error('API调用失败:', error);
         throw new Error(`AI服务调用失败：${error.message}`);
     }
-}
-
-// DeepSeek API调用 - 根据官方文档修正
-async function callDeepSeekAPI(message, apiKey) {
-    const response = await fetch('https://api.deepseek.com/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: "deepseek-chat",
-            messages: [
-                {
-                    role: "system",
-                    content: "你是一个专业的西安小升初政策咨询助手，请基于2025年西安义务教育招生政策提供准确、有用的信息。"
-                },
-                {
-                    role: "user",
-                    content: message
-                }
-            ],
-            stream: false,
-            max_tokens: 2000,
-            temperature: 0.7
-        })
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`DeepSeek API错误: ${response.status} ${errorData.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-        return data.choices[0].message.content;
-    } else {
-        console.error('DeepSeek API响应结构异常:', data);
-        throw new Error('DeepSeek API返回了异常响应结构');
-    }
-}
-
-// 阿里百炼API调用
-async function callBailianAPI(message, apiKey, appId) {
-    const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'X-DashScope-AppId': appId,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            model: "qwen-plus",
-            input: {
-                messages: [
-                    {
-                        role: "system",
-                        content: "你是一个专业的西安小升初政策咨询助手，请基于2025年西安义务教育招生政策提供准确、有用的信息。"
-                    },
-                    {
-                        role: "user", 
-                        content: message
-                    }
-                ]
-            },
-            parameters: {
-                result_format: "message"
-            }
-        })
-    });
-
-    if (!response.ok) {
-        throw new Error(`阿里百炼API错误: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.output.text;
-}
-
-// OpenAI API调用
-async function callOpenAIAPI(message, apiKey) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-                {
-                    role: "system",
-                    content: "你是一个专业的西安小升初政策咨询助手，请基于2025年西安义务教育招生政策提供准确、有用的信息。"
-                },
-                {
-                    role: "user",
-                    content: message
-                }
-            ],
-            max_tokens: 2000,
-            temperature: 0.7
-        })
-    });
-
-    if (!response.ok) {
-        throw new Error(`OpenAI API错误: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
-}
-
-// Google Gemini API调用
-async function callGoogleAPI(message, apiKey) {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            contents: [{
-                parts: [{
-                    text: `你是一个专业的西安小升初政策咨询助手，请基于2025年西安义务教育招生政策提供准确、有用的信息。
-
-用户问题：${message}`
-                }]
-            }],
-            generationConfig: {
-                maxOutputTokens: 2000,
-                temperature: 0.7
-            }
-        })
-    });
-
-    if (!response.ok) {
-        throw new Error(`Google Gemini API错误: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
 }
 
 // ========== 核心功能函数 ==========
