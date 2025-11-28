@@ -1,44 +1,70 @@
 module.exports = async function handler(req, res) {
+  // CORS设置 - 允许前端调用
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   try {
-    const { provider = 'bailian', action = 'chat', prompt = '', history = [], context = {} } = req.body || {};
+    const { provider = 'bailian', message = '', apiKey = '', appId = '' } = req.body || {};
 
-    let adapter;
+    console.log('收到AI请求:', { provider, messageLength: message.length });
+
+    // 检查必要参数
+    if (!message) {
+      return res.status(400).json({ error: '消息内容不能为空' });
+    }
+
+    if (!apiKey) {
+      return res.status(400).json({ error: 'API Key不能为空' });
+    }
+
+    let result;
+    
+    // 调用对应的AI服务
     switch (provider) {
       case 'bailian':
-        adapter = require('./providers/bailian.js');
+        const bailian = require('./providers/bailian');
+        result = await bailian.callAPI(message, apiKey, appId);
         break;
-      case 'google':
-        adapter = require('./providers/google.js');
-        break;
-      case 'openai':
-        adapter = require('./providers/openai.js');
-        break;
+        
       case 'deepseek':
-        adapter = require('./providers/deepseek.js');
+        const deepseek = require('./providers/deepseek');
+        result = await deepseek.callAPI(message, apiKey);
         break;
+        
+      case 'openai':
+        const openai = require('./providers/openai');
+        result = await openai.callAPI(message, apiKey);
+        break;
+        
+      case 'google':
+        const google = require('./providers/google');
+        result = await google.callAPI(message, apiKey);
+        break;
+        
       default:
-        adapter = require('./providers/bailian.js');
-        break;
+        return res.status(400).json({ error: '不支持的AI服务提供商: ' + provider });
     }
 
-    const factory = adapter && (adapter.default || adapter);
-    const api = typeof factory === 'function' ? factory() : null;
-
-    if (!api || typeof api[action] !== 'function') {
-      return res.status(400).json({ error: 'Unsupported action or provider' });
-    }
-
-    const result = await api[action]({ prompt, history, context });
-
-    res.setHeader('Content-Type', 'application/json');
-    return res.status(200).json(result);
+    // 返回成功结果
+    return res.status(200).json({ 
+      success: true,
+      response: result,
+      provider: provider
+    });
 
   } catch (err) {
-    console.error('AI route error:', err);
-    return res.status(500).json({ error: 'Internal Server Error', details: String((err && err.message) || err) });
+    console.error('AI服务错误:', err);
+    return res.status(500).json({ 
+      error: 'AI服务调用失败: ' + err.message
+    });
   }
 };
