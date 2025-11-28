@@ -2,6 +2,13 @@
   publish = "."
   command = "echo 'No build needed'"
 
+# API路由优先处理
+[[redirects]]
+  from = "/api/*"
+  to = "/api/:splat"
+  status = 200
+
+# 前端路由
 [[redirects]]
   from = "/*"
   to = "/index.html"
