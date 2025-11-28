@@ -676,54 +676,5 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pinyin-pro/dist/pinyin-pro.umd.min.js"></script>
     <script src="script.js"></script>
-    
-    <script>
-    // 确保所有函数在全局可用
-    window.showStep = showStep;
-    window.toggleChat = toggleChat;
-    window.toggleConfigPanel = toggleConfigPanel;
-    window.useLocalMode = useLocalMode;
-    window.sendMessage = sendMessage;
-    window.quickAction = quickAction;
-    window.handleKeyPress = handleKeyPress;
-    window.interpretPolicy = interpretPolicy;
-    window.generateReport = generateReport;
-    window.exportReportPDF = exportReportPDF;
-    window.exportReportJSON = exportReportJSON;
-    window.resetAll = resetAll;
-    window.saveAndTestConfig = saveAndTestConfig;
-    window.goToStep1 = goToStep1;
-    window.goToStep2 = goToStep2;
-    window.goToStep3 = goToStep3;
-    window.goToStep4 = goToStep4;
-    window.goToStep5 = goToStep5;
-
-    // 页面加载完成后执行额外初始化
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('页面完全加载完成');
-        
-        // 绑定步骤指示器点击事件
-        document.querySelectorAll('.step').forEach(step => {
-            step.addEventListener('click', function() {
-                const stepNumber = this.id.replace('step', '').replace('-indicator', '');
-                showStep(parseInt(stepNumber));
-            });
-        });
-        
-        // 绑定快捷操作按钮
-        document.querySelectorAll('.quick-action-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const text = this.textContent;
-                quickAction(text);
-            });
-        });
-        
-        // 绑定AI解读按钮
-        const interpretBtn = document.getElementById('interpretBtn');
-        if (interpretBtn) {
-            interpretBtn.addEventListener('click', interpretPolicy);
-        }
-    });
-    </script>
 </body>
 </html>
