@@ -264,10 +264,14 @@ function toggleConfigPanel() {
     }
 }
 
-// 切换到本地模式
+// 切换到本地模式 - 修复版本
 function useLocalMode() {
+    console.log('切换到本地模式');
+    
+    // 更新配置
     CONFIG.isConnected = false;
     
+    // 更新状态显示
     const statusText = document.getElementById('statusText');
     if (statusText) {
         statusText.textContent = '本地模式';
@@ -283,12 +287,17 @@ function useLocalMode() {
         chatApiStatus.textContent = '本地模式';
     }
 
+    // 关闭配置面板
     const configPanel = document.getElementById('configPanel');
     if (configPanel && configPanel.classList.contains('active')) {
         configPanel.classList.remove('active');
     }
     
+    // 显示成功消息
     alert('已切换到本地模式。AI相关功能将不可用。');
+    
+    // 保存到本地存储
+    localStorage.setItem('aiProvider', 'local');
 }
 
 // 发送消息函数
@@ -718,3 +727,23 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// 确保所有函数在全局可用
+window.showStep = showStep;
+window.toggleChat = toggleChat;
+window.toggleConfigPanel = toggleConfigPanel;
+window.useLocalMode = useLocalMode;
+window.sendMessage = sendMessage;
+window.quickAction = quickAction;
+window.handleKeyPress = handleKeyPress;
+window.interpretPolicy = interpretPolicy;
+window.generateReport = generateReport;
+window.exportReportPDF = exportReportPDF;
+window.exportReportJSON = exportReportJSON;
+window.resetAll = resetAll;
+window.saveAndTestConfig = saveAndTestConfig;
+window.goToStep1 = goToStep1;
+window.goToStep2 = goToStep2;
+window.goToStep3 = goToStep3;
+window.goToStep4 = goToStep4;
+window.goToStep5 = goToStep5;
