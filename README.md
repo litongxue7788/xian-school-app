@@ -21,8 +21,7 @@
 
 1. **克隆项目**
 ```bash
-git clone <项目地址>
-cd 西安小升初
+git clone <git clone https://github.com/litongxue7788/xian-school-app.git>
 ```
 
 2. **安装依赖**
