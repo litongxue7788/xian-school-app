@@ -38,7 +38,7 @@ npm run dev
 
 4. **访问应用**
 ```
-http://localhost:3000
+https://xian-school-app.vercel.app/
 ```
 
 ## 🎯 功能特色
