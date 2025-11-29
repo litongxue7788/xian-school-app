@@ -100,29 +100,34 @@ async function callOpenAIAPI(message, apiKey) {
   throw new Error('OpenAI返回格式异常');
 }
 
-// ====== Google Gemini API ======
+// Google Gemini 调用 — 修正模型名与接口版本
 async function callGoogleAPI(message, apiKey) {
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.0-pro:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: generatePrompt() + '\n用户问题：' + message }] }],
-      generationConfig: { maxOutputTokens: 4000, temperature: 0.7, topP: 0.8, topK: 40 },
-      safetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_MEDIUM_AND_ABOVE' }
-      ]
-    })
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const body = {
+    contents: [
+      {
+        parts: [
+          { text: systemPrompt() + "\\n用户问题：" + message }
+        ]
+      }
+    ],
+    generationConfig: {
+      maxOutputTokens: 4000,
+      temperature: 0.7
+    }
+  };
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
   });
-
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Google Gemini API错误: ${response.status}, ${text}`);
+    const errText = await response.text();
+    console.error("Gemini 错误响应:", errText);
+    throw new Error(`Google Gemini API 错误: ${response.status}`);
   }
-
   const data = await response.json();
-  if (data.candidates?.[0]?.content?.parts?.[0]?.text) return data.candidates[0].content.parts[0].text;
-  throw new Error('Google Gemini返回格式异常');
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text || "Gemini 返回为空";
 }
 
 // ====== 提示词生成 ======
