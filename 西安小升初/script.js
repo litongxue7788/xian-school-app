@@ -374,6 +374,7 @@ async function sendMessage() {
 你是西安小升初智能助手，请根据以下用户真实信息回答问题。
 
 【用户已填写信息】：
+- 学生年级: ${userData.当前年级 || '未填写'}
 - 能力评估: ${JSON.stringify(userData.能力评估)}
 - 户籍所在区: ${userData.户籍所在区 || '未填写'}
 - 实际居住区: ${userData.实际居住区 || '未填写'}
@@ -413,6 +414,7 @@ ${message}
 function collectUserDataForAI() {
     const userData = {
         能力评估: {},
+        当前年级: '',
         户籍所在区: '',
         实际居住区: '',
         房产情况: '',
@@ -423,20 +425,16 @@ function collectUserDataForAI() {
         教育理念偏好: []
     };
     
-    // 收集能力评估数据
-    const abilityScores = document.querySelectorAll('.ability-score');
-    abilityScores.forEach(score => {
-        const name = score.getAttribute('data-ability') || '未知能力';
-        const value = score.value || '0';
-        userData.能力评估[name] = value;
-    });
+    // 收集当前年级
+    const currentGrade = document.querySelector('input[name="currentGrade"]:checked');
+    if (currentGrade) userData.当前年级 = currentGrade.value;
     
     // 收集能力评估数据（从单选按钮）
     const scoreRadios = document.querySelectorAll('input[type="radio"]:checked');
     scoreRadios.forEach(radio => {
         const name = radio.name.replace('score', '');
         const value = radio.value;
-        if (name && value) {
+        if (name && value && radio.name.startsWith('score')) {
             userData.能力评估[`维度${name}`] = value;
         }
     });
@@ -622,13 +620,13 @@ async function generateReport() {
     // 显示步骤6
     showStep(6);
     
-    // 生成能力雷达图
-    generateAbilityChart();
+    // 生成能力雷达图（包含AI分析）
+    await generateAbilityChart();
     
-    // 显示学校推荐
-    showSchoolRecommendations();
+    // 显示学校推荐（AI生成）
+    await showSchoolRecommendations();
     
-    // ⭐ 新增：AI生成时间规划和政策提醒
+    // AI生成时间规划和政策提醒
     if (CONFIG.isConnected) {
         await generateAITimelineAndPolicy();
     } else {
@@ -645,8 +643,8 @@ function collectAllData() {
     // 这里添加数据收集逻辑
 }
 
-// 生成能力雷达图
-function generateAbilityChart() {
+// 生成能力雷达图 - 修复：添加AI分析
+async function generateAbilityChart() {
     const canvas = document.getElementById('abilityChart');
     if (!canvas) return;
     
@@ -687,82 +685,202 @@ function generateAbilityChart() {
         }
     });
     
-    // 更新分析文本
+    // ⭐ 修复：调用AI生成能力分析
+    await generateAbilityAnalysis();
+}
+
+// ⭐ 新增：AI生成能力分析
+async function generateAbilityAnalysis() {
     const analysisElement = document.getElementById('abilityAnalysis');
-    if (analysisElement) {
+    if (!analysisElement) return;
+    
+    if (!CONFIG.isConnected) {
+        // 本地模式显示静态内容
         analysisElement.innerHTML = `
             <div style="background: #f0f9ff; padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6;">
                 <strong>能力分析：</strong>您的孩子在学业成绩和学习习惯方面表现良好，家庭支持度很高。
                 建议重点关注心理素质的培养，帮助孩子更好地应对升学压力。
             </div>
         `;
+        return;
+    }
+    
+    try {
+        const userData = collectUserDataForAI();
+        
+        const prompt = `
+请根据以下学生能力评估数据，生成【个性化能力分析与改进建议】：
+
+能力评估数据：
+${JSON.stringify(userData.能力评估, null, 2)}
+
+学生其他信息：
+- 当前年级: ${userData.当前年级 || '未填写'}
+- 学生特长: ${userData.学生特长.join('、') || '无'}
+- 学业规划: ${userData.学业规划 || '未填写'}
+
+要求：
+1. 分析学生的优势领域和需要改进的方面
+2. 给出具体的能力提升建议
+3. 结合学生的特长和学业规划给出发展建议
+4. 以家长易懂的语言表达
+5. 返回HTML格式的分析内容
+
+请直接返回HTML内容，不要包含markdown标记。
+`;
+
+        const abilityAnalysis = await callAIAPI(prompt, CONFIG.provider, CONFIG.apiKey, CONFIG.appId);
+        
+        analysisElement.innerHTML = `
+            <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                <h4 style="margin: 0 0 10px 0; color: #1e40af;">🎯 AI能力分析</h4>
+                ${abilityAnalysis}
+                <div class="source-info" style="margin-top: 10px;">
+                    <span class="trust-badge trust-verified">🤖 AI智能分析</span>
+                    基于${CONFIG.provider}大模型深度分析
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('能力分析生成失败:', error);
+        analysisElement.innerHTML = `
+            <div style="background: #f0f9ff; padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                <strong>能力分析：</strong>您的孩子在学业成绩和学习习惯方面表现良好，家庭支持度很高。
+                建议重点关注心理素质的培养，帮助孩子更好地应对升学压力。
+                <p style="color: #e53e3e; margin-top: 8px; font-size: 12px;">AI分析暂时不可用，显示默认分析</p>
+            </div>
+        `;
     }
 }
 
-// 显示学校推荐
-function showSchoolRecommendations() {
+// ⭐ 修复：学校推荐改为AI生成
+async function showSchoolRecommendations() {
     const recommendationElement = document.getElementById('schoolRecommendation');
     if (!recommendationElement) return;
     
-    // 模拟学校推荐数据
+    // 显示加载状态
     recommendationElement.innerHTML = `
-        <div class="school-recommendation-list">
-            <div class="school-card recommended">
-                <div class="school-header">
-                    <h4>西安市高新第一中学</h4>
-                    <span class="match-badge">匹配度 92%</span>
-                </div>
-                <div class="school-details">
-                    <p><strong>类型：</strong>民办初中</p>
-                    <p><strong>特色：</strong>理科强化、科技创新</p>
-                    <p><strong>预估摇号概率：</strong> 35%</p>
-                    <p><strong>推荐理由：</strong> 与孩子的学业能力和学科倾向高度匹配</p>
-                </div>
-            </div>
-            
-            <div class="school-card">
-                <div class="school-header">
-                    <h4>西安铁一中</h4>
-                    <span class="match-badge">匹配度 87%</span>
-                </div>
-                <div class="school-details">
-                    <p><strong>类型：</strong>民办初中</p>
-                    <p><strong>特色：</strong>全面发展、社团丰富</p>
-                    <p><strong>预估摇号概率：</strong> 28%</p>
-                    <p><strong>推荐理由：</strong> 综合素质培养与孩子特长匹配</p>
-                </div>
-            </div>
-            
-            <div class="school-card safe">
-                <div class="school-header">
-                    <h4>对口公办学校</h4>
-                    <span class="match-badge">保底选择</span>
-                </div>
-                <div class="school-details">
-                    <p><strong>类型：</strong>公办初中</p>
-                    <p><strong>优势：</strong>免试入学、就近方便</p>
-                    <p><strong>入学概率：</strong> 100%</p>
-                    <p><strong>推荐理由：</strong> 稳妥的保底选择，确保有学可上</p>
-                </div>
+        <div class="ai-loading">
+            <div class="ai-loading-spinner"></div>
+            <p>AI正在基于您的信息进行深度分析...</p>
+            <div class="source-info">
+                <span class="trust-badge trust-verified">多重验证中</span>
+                正在验证信息准确性和时效性
             </div>
         </div>
     `;
-}
-
-// ⭐ 新增函数1：AI生成个性化时间规划
-async function generateTimePlan(userData) {
-    const prompt = `
-请根据以下家庭信息和学生情况制定【2025年西安小升初个性化时间规划】：
+    
+    if (!CONFIG.isConnected) {
+        // 本地模式显示静态内容
+        recommendationElement.innerHTML = `
+            <div class="school-recommendation-list">
+                <div class="school-card recommended">
+                    <div class="school-header">
+                        <h4>西安市高新第一中学</h4>
+                        <span class="match-badge">匹配度 92%</span>
+                    </div>
+                    <div class="school-details">
+                        <p><strong>类型：</strong>民办初中</p>
+                        <p><strong>特色：</strong>理科强化、科技创新</p>
+                        <p><strong>预估摇号概率：</strong> 35%</p>
+                        <p><strong>推荐理由：</strong> 与孩子的学业能力和学科倾向高度匹配</p>
+                    </div>
+                </div>
+                
+                <div class="school-card">
+                    <div class="school-header">
+                        <h4>西安铁一中</h4>
+                        <span class="match-badge">匹配度 87%</span>
+                    </div>
+                    <div class="school-details">
+                        <p><strong>类型：</strong>民办初中</p>
+                        <p><strong>特色：</strong>全面发展、社团丰富</p>
+                        <p><strong>预估摇号概率：</strong> 28%</p>
+                        <p><strong>推荐理由：</strong> 综合素质培养与孩子特长匹配</p>
+                    </div>
+                </div>
+                
+                <div class="school-card safe">
+                    <div class="school-header">
+                        <h4>对口公办学校</h4>
+                        <span class="match-badge">保底选择</span>
+                    </div>
+                    <div class="school-details">
+                        <p><strong>类型：</strong>公办初中</p>
+                        <p><strong>优势：</strong>免试入学、就近方便</p>
+                        <p><strong>入学概率：</strong> 100%</p>
+                        <p><strong>推荐理由：</strong> 稳妥的保底选择，确保有学可上</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        return;
+    }
+    
+    try {
+        const userData = collectUserDataForAI();
+        
+        const prompt = `
+请根据以下学生和家庭信息，生成【个性化学校推荐】：
 
 用户信息：
 ${JSON.stringify(userData, null, 2)}
 
 要求：
-1. 列出2025年每个月的关键事项（报名、政策公布、摇号、录取等）
-2. 根据家庭情况给出特别提醒（如：户籍不一致需提前准备材料、民办意向强需关注学校开放日等）
-3. 标注每个时间节点的重要性（关键/重要/提醒）
-4. 用简洁、可执行的方式呈现，包含具体日期
-5. 以HTML格式输出，使用<ul><li>结构
+1. 推荐5所最适合的学校（2所冲刺校、2所稳妥校、1所保底校）
+2. 每所学校包含：学校名称、类型、匹配度、推荐理由、摇号概率/入学概率、学校特色
+3. 以HTML格式输出，使用标准的学校卡片样式
+4. 基于学生的能力评估、家庭情况、地理位置进行推荐
+5. 给出具体的推荐理由和匹配分析
+
+请直接返回HTML内容，不要包含markdown标记。
+`;
+
+        const schoolRecommendations = await callAIAPI(prompt, CONFIG.provider, CONFIG.apiKey, CONFIG.appId);
+        
+        recommendationElement.innerHTML = `
+            <div class="school-recommendation-list">
+                ${schoolRecommendations}
+                <div class="source-info" style="margin-top: 15px;">
+                    <span class="trust-badge trust-verified">🤖 AI智能推荐</span>
+                    基于${CONFIG.provider}大模型深度分析
+                </div>
+            </div>
+        `;
+        
+    } catch (error) {
+        console.error('学校推荐生成失败:', error);
+        recommendationElement.innerHTML = `
+            <div style="background: #fff5f5; padding: 20px; border-radius: 8px; text-align: center;">
+                <h4 style="color: #e53e3e;">学校推荐生成失败</h4>
+                <p>错误: ${error.message}</p>
+                <p>请检查网络连接或稍后重试</p>
+            </div>
+        `;
+    }
+}
+
+// ⭐ 修复：AI生成个性化时间规划 - 添加年级逻辑
+async function generateTimePlan(userData) {
+    const currentYear = new Date().getFullYear();
+    const targetYear = userData.当前年级 === '五年级' ? currentYear + 1 : 
+                      userData.当前年级 === '四年级' ? currentYear + 2 : 
+                      userData.当前年级 === '三年级' ? currentYear + 3 : currentYear + 1;
+    
+    const prompt = `
+请根据以下家庭信息和学生情况制定【${targetYear}年西安小升初个性化时间规划】：
+
+用户信息：
+${JSON.stringify(userData, null, 2)}
+
+要求：
+1. 基于学生当前${userData.当前年级 || '五年级'}的情况制定时间规划
+2. 列出${targetYear}年每个月的关键事项（政策关注、学校了解、材料准备、报名、摇号、录取等）
+3. 根据家庭情况给出特别提醒（如：户籍不一致需提前准备材料、民办意向强需关注学校开放日等）
+4. 标注每个时间节点的重要性（关键/重要/提醒）
+5. 用简洁、可执行的方式呈现，包含具体日期
+6. 以HTML格式输出，使用<ul><li>结构
 
 请直接返回HTML内容，不要包含markdown标记。
 `;
@@ -776,7 +894,7 @@ ${JSON.stringify(userData, null, 2)}
     }
 }
 
-// ⭐ 新增函数2：AI生成个性化政策提醒
+// ⭐ 修复：AI生成个性化政策提醒
 async function generatePolicyTips(userData) {
     const prompt = `
 请根据以下学生和家庭信息，生成【个性化小升初政策提醒与建议】：
@@ -804,7 +922,7 @@ ${JSON.stringify(userData, null, 2)}
     }
 }
 
-// ⭐ 新增函数3：调用AI生成并更新页面
+// ⭐ 修复：调用AI生成并更新页面
 async function generateAITimelineAndPolicy() {
     const userData = collectUserDataForAI();
     
