@@ -234,7 +234,7 @@ async function callAIAPI(message, provider, apiKey, appId = '') {
 
 // ========== 核心功能函数 ==========
 
-// 显示指定步骤的函数
+// 显示指定步骤的函数 - 修复版本
 function showStep(stepNumber) {
     console.log(`切换到步骤 ${stepNumber}`);
     
@@ -263,7 +263,7 @@ function showStep(stepNumber) {
     // 更新进度条
     const progressBar = document.getElementById('progressBar');
     if (progressBar) {
-        const progress = ((stepNumber - 1) / 5) * 100;
+        const progress = ((stepNumber - 1) / 6) * 100; // 更新为6步
         progressBar.style.width = `${progress}%`;
     }
     
@@ -271,23 +271,28 @@ function showStep(stepNumber) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 步骤导航函数
+// 步骤导航函数 - 修复版本
 function goToStep1() { 
     showStep(1); 
 }
 function goToStep2() { 
+    // 修复：移除验证，直接跳转
     showStep(2); 
 }
 function goToStep3() { 
-    if (validateStep2()) {
-        showStep(3); 
-    }
+    showStep(3); 
 }
 function goToStep4() { 
     showStep(4); 
 }
 function goToStep5() { 
     showStep(5); 
+}
+function goToStep6() { 
+    showStep(6); 
+}
+function goToStep7() { 
+    showStep(7); 
 }
 
 // 切换聊天窗口显示/隐藏
@@ -617,8 +622,8 @@ async function generateReport() {
     // 收集所有步骤的数据
     collectAllData();
     
-    // 显示步骤6
-    showStep(6);
+    // 显示步骤7
+    showStep(7);
     
     // 生成能力雷达图（包含AI分析）
     await generateAbilityChart();
@@ -722,9 +727,12 @@ async function generateAbilityAnalysis() {
     if (!CONFIG.isConnected) {
         // 本地模式显示静态内容
         analysisElement.innerHTML = `
-            <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-top: 20px; min-height: 120px;">
-                <strong>能力分析：</strong>您的孩子在学业成绩和学习习惯方面表现良好，家庭支持度很高。
-                建议重点关注心理素质的培养，帮助孩子更好地应对升学压力。
+            <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 20px 0; min-height: 200px;">
+                <h4 style="margin: 0 0 15px 0; color: #1e40af;">🎯 AI深度能力分析</h4>
+                <div style="line-height: 1.6; font-size: 14px; color: #374151;">
+                    <strong>能力分析：</strong>您的孩子在学业成绩和学习习惯方面表现良好，家庭支持度很高。
+                    建议重点关注心理素质的培养，帮助孩子更好地应对升学压力。
+                </div>
             </div>
         `;
         return;
@@ -769,7 +777,7 @@ async function generateAbilityAnalysis() {
         const abilityAnalysis = await callAIAPI(prompt, CONFIG.provider, CONFIG.apiKey, CONFIG.appId);
         
         analysisElement.innerHTML = `
-            <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-top: 20px; min-height: 150px;">
+            <div style="background: #f0f9ff; padding: 25px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 20px 0; min-height: 250px;">
                 <h4 style="margin: 0 0 15px 0; color: #1e40af;">🎯 AI深度能力分析</h4>
                 <div style="line-height: 1.6; font-size: 14px; color: #374151;">
                     ${abilityAnalysis}
@@ -784,9 +792,12 @@ async function generateAbilityAnalysis() {
     } catch (error) {
         console.error('能力分析生成失败:', error);
         analysisElement.innerHTML = `
-            <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-top: 20px; min-height: 120px;">
-                <strong>能力分析：</strong>您的孩子在学业成绩和学习习惯方面表现良好，家庭支持度很高。
-                建议重点关注心理素质的培养，帮助孩子更好地应对升学压力。
+            <div style="background: #f0f9ff; padding: 25px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 20px 0; min-height: 200px;">
+                <h4 style="margin: 0 0 15px 0; color: #1e40af;">🎯 AI深度能力分析</h4>
+                <div style="line-height: 1.6; font-size: 14px; color: #374151;">
+                    <strong>能力分析：</strong>您的孩子在学业成绩和学习习惯方面表现良好，家庭支持度很高。
+                    建议重点关注心理素质的培养，帮助孩子更好地应对升学压力。
+                </div>
                 <p style="color: #e53e3e; margin-top: 8px; font-size: 12px;">AI分析暂时不可用，显示默认分析</p>
             </div>
         `;
@@ -1180,18 +1191,26 @@ function clearFieldError(elem) {
     }
 }
 
-function validateStep2() {
+// 修复：简化验证逻辑，只验证必填项
+function validateStep3() {
     const hd = document.getElementById('householdDistrict');
-    const hs = document.getElementById('householdStreet');
     const rd = document.getElementById('residenceDistrict');
-    const rs = document.getElementById('residenceStreet');
 
     let ok = true;
 
-    if (!hd || !hd.value) { showFieldError(hd, '请选择户籍所在区'); ok = false; }
-    if (!hs || !hs.value) { showFieldError(hs, '请选择户籍所在街道'); ok = false; }
-    if (!rd || !rd.value) { showFieldError(rd, '请选择实际居住区'); ok = false; }
-    if (!rs || !rs.value) { showFieldError(rs, '请选择实际居住街道'); ok = false; }
+    if (!hd || !hd.value) { 
+        showFieldError(hd, '请选择户籍所在区'); 
+        ok = false; 
+    } else {
+        clearFieldError(hd);
+    }
+    
+    if (!rd || !rd.value) { 
+        showFieldError(rd, '请选择实际居住区'); 
+        ok = false; 
+    } else {
+        clearFieldError(rd);
+    }
 
     if (!ok) {
         const firstError = document.querySelector('.field-error:not(:empty)');
@@ -1462,3 +1481,5 @@ window.goToStep2 = goToStep2;
 window.goToStep3 = goToStep3;
 window.goToStep4 = goToStep4;
 window.goToStep5 = goToStep5;
+window.goToStep6 = goToStep6;
+window.goToStep7 = goToStep7;
