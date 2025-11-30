@@ -643,19 +643,44 @@ function collectAllData() {
     // 这里添加数据收集逻辑
 }
 
-// 生成能力雷达图 - 修复：添加AI分析
+// 计算能力得分函数
+function calculateAbilityScores(userData) {
+    // 从用户数据中提取各维度得分
+    const scores = {
+        '学业成绩': parseInt(userData.能力评估['维度1'] || 3),
+        '综合素养': parseInt(userData.能力评估['维度2'] || 3),
+        '学习习惯': parseInt(userData.能力评估['维度3'] || 3),
+        '心理素质': parseInt(userData.能力评估['维度4'] || 3),
+        '家庭支持': parseInt(userData.能力评估['维度5'] || 3),
+        '学科倾向': parseInt(userData.能力评估['维度6'] || 3)
+    };
+    
+    return [
+        scores['学业成绩'],
+        scores['综合素养'], 
+        scores['学习习惯'],
+        scores['心理素质'],
+        scores['家庭支持'],
+        scores['学科倾向']
+    ];
+}
+
+// 生成能力雷达图 - 修复：使用真实用户数据
 async function generateAbilityChart() {
     const canvas = document.getElementById('abilityChart');
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
     
-    // 模拟数据 - 实际应该从表单收集
+    // ⭐ 修复：从表单收集真实数据
+    const userData = collectUserDataForAI();
+    const abilityScores = calculateAbilityScores(userData);
+    
     const data = {
         labels: ['学业成绩', '综合素养', '学习习惯', '心理素质', '家庭支持', '学科倾向'],
         datasets: [{
             label: '能力评估',
-            data: [4, 3, 4, 3, 5, 4],
+            data: abilityScores,
             backgroundColor: 'rgba(54, 162, 235, 0.2)',
             borderColor: 'rgba(54, 162, 235, 1)',
             pointBackgroundColor: 'rgba(54, 162, 235, 1)',
@@ -685,11 +710,11 @@ async function generateAbilityChart() {
         }
     });
     
-    // ⭐ 修复：调用AI生成能力分析
+    // 调用AI生成能力分析
     await generateAbilityAnalysis();
 }
 
-// ⭐ 新增：AI生成能力分析
+// ⭐ 增强：AI生成能力分析 - 更充分考虑个人情况
 async function generateAbilityAnalysis() {
     const analysisElement = document.getElementById('abilityAnalysis');
     if (!analysisElement) return;
@@ -697,7 +722,7 @@ async function generateAbilityAnalysis() {
     if (!CONFIG.isConnected) {
         // 本地模式显示静态内容
         analysisElement.innerHTML = `
-            <div style="background: #f0f9ff; padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+            <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-top: 20px; min-height: 120px;">
                 <strong>能力分析：</strong>您的孩子在学业成绩和学习习惯方面表现良好，家庭支持度很高。
                 建议重点关注心理素质的培养，帮助孩子更好地应对升学压力。
             </div>
@@ -709,22 +734,34 @@ async function generateAbilityAnalysis() {
         const userData = collectUserDataForAI();
         
         const prompt = `
-请根据以下学生能力评估数据，生成【个性化能力分析与改进建议】：
+请根据以下学生完整信息，生成【深度个性化能力分析与改进建议】：
 
-能力评估数据：
-${JSON.stringify(userData.能力评估, null, 2)}
-
-学生其他信息：
+【学生基本情况】
 - 当前年级: ${userData.当前年级 || '未填写'}
 - 学生特长: ${userData.学生特长.join('、') || '无'}
 - 学业规划: ${userData.学业规划 || '未填写'}
+- 户籍所在区: ${userData.户籍所在区 || '未填写'} 
+- 实际居住区: ${userData.实际居住区 || '未填写'}
+- 房产情况: ${userData.房产情况 || '未填写'}
+- 民办意向: ${userData.民办意向 || '未填写'}
+
+【能力评估详细数据】
+- 学业成绩: ${userData.能力评估['维度1'] || '未评估'}分
+- 综合素养: ${userData.能力评估['维度2'] || '未评估'}分  
+- 学习习惯: ${userData.能力评估['维度3'] || '未评估'}分
+- 心理素质: ${userData.能力评估['维度4'] || '未评估'}分
+- 家庭支持: ${userData.能力评估['维度5'] || '未评估'}分
+- 学科倾向: ${userData.能力评估['维度6'] || '未评估'}分
 
 要求：
-1. 分析学生的优势领域和需要改进的方面
-2. 给出具体的能力提升建议
-3. 结合学生的特长和学业规划给出发展建议
-4. 以家长易懂的语言表达
-5. 返回HTML格式的分析内容
+1. 必须结合学生的年级(${userData.当前年级})分析发展需求
+2. 必须结合户籍(${userData.户籍所在区})和居住地(${userData.实际居住区})分析教育资源匹配
+3. 必须结合房产情况(${userData.房产情况})和民办意向(${userData.民办意向})给出升学策略建议
+4. 分析每个维度的具体表现和改进空间
+5. 给出针对性的能力提升建议和时间规划
+6. 结合学生特长(${userData.学生特长.join('、')})推荐适合的发展方向
+7. 以家长易懂的语言表达，避免专业术语
+8. 返回HTML格式的分析内容
 
 请直接返回HTML内容，不要包含markdown标记。
 `;
@@ -732,12 +769,14 @@ ${JSON.stringify(userData.能力评估, null, 2)}
         const abilityAnalysis = await callAIAPI(prompt, CONFIG.provider, CONFIG.apiKey, CONFIG.appId);
         
         analysisElement.innerHTML = `
-            <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; border-left: 4px solid #3b82f6;">
-                <h4 style="margin: 0 0 10px 0; color: #1e40af;">🎯 AI能力分析</h4>
-                ${abilityAnalysis}
-                <div class="source-info" style="margin-top: 10px;">
+            <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-top: 20px; min-height: 150px;">
+                <h4 style="margin: 0 0 15px 0; color: #1e40af;">🎯 AI深度能力分析</h4>
+                <div style="line-height: 1.6; font-size: 14px; color: #374151;">
+                    ${abilityAnalysis}
+                </div>
+                <div class="source-info" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #d1e9ff;">
                     <span class="trust-badge trust-verified">🤖 AI智能分析</span>
-                    基于${CONFIG.provider}大模型深度分析
+                    基于${CONFIG.provider}大模型深度分析 · 充分考虑个人情况
                 </div>
             </div>
         `;
@@ -745,7 +784,7 @@ ${JSON.stringify(userData.能力评估, null, 2)}
     } catch (error) {
         console.error('能力分析生成失败:', error);
         analysisElement.innerHTML = `
-            <div style="background: #f0f9ff; padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+            <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin-top: 20px; min-height: 120px;">
                 <strong>能力分析：</strong>您的孩子在学业成绩和学习习惯方面表现良好，家庭支持度很高。
                 建议重点关注心理素质的培养，帮助孩子更好地应对升学压力。
                 <p style="color: #e53e3e; margin-top: 8px; font-size: 12px;">AI分析暂时不可用，显示默认分析</p>
@@ -861,12 +900,13 @@ ${JSON.stringify(userData, null, 2)}
     }
 }
 
-// ⭐ 修复：AI生成个性化时间规划 - 添加年级逻辑
+// ⭐ 修复：AI生成个性化时间规划 - 修正年级逻辑
 async function generateTimePlan(userData) {
     const currentYear = new Date().getFullYear();
-    const targetYear = userData.当前年级 === '五年级' ? currentYear + 1 : 
-                      userData.当前年级 === '四年级' ? currentYear + 2 : 
-                      userData.当前年级 === '三年级' ? currentYear + 3 : currentYear + 1;
+    // 修正年级对应年份逻辑
+    const targetYear = userData.当前年级 === '六年级' ? currentYear + 1 : 
+                      userData.当前年级 === '五年级' ? currentYear + 2 : 
+                      userData.当前年级 === '四年级' ? currentYear + 3 : currentYear + 1;
     
     const prompt = `
 请根据以下家庭信息和学生情况制定【${targetYear}年西安小升初个性化时间规划】：
@@ -875,7 +915,7 @@ async function generateTimePlan(userData) {
 ${JSON.stringify(userData, null, 2)}
 
 要求：
-1. 基于学生当前${userData.当前年级 || '五年级'}的情况制定时间规划
+1. 基于学生当前${userData.当前年级 || '六年级'}的情况制定时间规划
 2. 列出${targetYear}年每个月的关键事项（政策关注、学校了解、材料准备、报名、摇号、录取等）
 3. 根据家庭情况给出特别提醒（如：户籍不一致需提前准备材料、民办意向强需关注学校开放日等）
 4. 标注每个时间节点的重要性（关键/重要/提醒）
