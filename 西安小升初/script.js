@@ -190,7 +190,7 @@ const STREET_DATA = {
 
 // ========== API调用函数 ==========
 
-// API调用函数 - 修复版本
+// API调用函数 - 支持所有大模型（调用自己的后端API）
 async function callAIAPI(message, provider, apiKey, appId = '') {
     try {
         // 如果是本地模式，直接返回模拟响应
@@ -200,8 +200,8 @@ async function callAIAPI(message, provider, apiKey, appId = '') {
 
         console.log('调用AI API:', { provider, messageLength: message.length });
         
-        // 调用自己的后端API - 修正路径
-        const response = await fetch('/api/ai.js', {
+        // 调用自己的后端API - 修复路径为 /api/ai
+        const response = await fetch('/api/ai', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -229,332 +229,6 @@ async function callAIAPI(message, provider, apiKey, appId = '') {
     } catch (error) {
         console.error('API调用失败:', error);
         throw new Error(`AI服务调用失败：${error.message}`);
-    }
-}
-
-// ========== AI智能学校推荐系统 ==========
-
-// 收集用户数据用于AI分析
-function collectUserDataForAI() {
-    const scores = {};
-    // 收集能力评估分数
-    for (let i = 1; i <= 6; i++) {
-        const scoreElement = document.querySelector(`input[name="score${i}"]:checked`);
-        scores[`dimension${i}`] = scoreElement ? parseInt(scoreElement.value) : 3;
-    }
-
-    // 收集其他信息
-    const householdDistrict = document.getElementById('householdDistrict')?.value || '';
-    const residenceDistrict = document.getElementById('residenceDistrict')?.value || '';
-    const hasHouse = document.getElementById('hasHouse')?.value || '';
-    const considerPrivate = document.getElementById('considerPrivate')?.value || '';
-    const budget = document.getElementById('budget')?.value || '';
-    const academicGoals = document.getElementById('academicGoals')?.value || '';
-    
-    // 收集特长
-    const strengths = [];
-    document.querySelectorAll('.strength-check:checked').forEach(checkbox => {
-        strengths.push(checkbox.value);
-    });
-
-    // 收集教育理念偏好
-    const educationPhilosophy = [];
-    document.querySelectorAll('.philosophy-check:checked').forEach(checkbox => {
-        educationPhilosophy.push(checkbox.value);
-    });
-
-    return {
-        能力评估: scores,
-        户籍所在区: householdDistrict,
-        实际居住区: residenceDistrict,
-        房产情况: hasHouse,
-        民办意向: considerPrivate,
-        预算范围: budget,
-        学业规划: academicGoals,
-        学生特长: strengths,
-        教育理念偏好: educationPhilosophy,
-        评估时间: new Date().toLocaleString()
-    };
-}
-
-// AI智能学校推荐 - 修复版本，确保调用大模型
-async function getAISchoolRecommendations() {
-    console.log('开始AI学校推荐，连接状态:', CONFIG.isConnected);
-    
-    if (!CONFIG.isConnected) {
-        console.log('AI未连接，使用备用推荐数据');
-        return getFallbackRecommendations();
-    }
-
-    try {
-        // 收集用户数据用于AI分析
-        const userData = collectUserDataForAI();
-        console.log('收集的用户数据:', userData);
-        
-        const prompt = `你是一个专业的西安小升初升学顾问。请基于以下学生信息，推荐5所最适合的西安初中学校：
-
-学生详细信息：
-${JSON.stringify(userData, null, 2)}
-
-请按照以下要求推荐：
-1. 推荐5所学校：2所冲刺校（匹配度高但竞争激烈）、2所稳妥校（匹配度适中录取概率高）、1所保底校（确保入学）
-2. 每所学校包含：学校名称、类型（民办/公办）、匹配度（百分比）、推荐理由、预估摇号概率（民办）、入学概率（公办）、学校特色、推荐类型（sprint/steady/fallback）
-3. 基于2025年西安实际招生政策、学校教学质量、地理位置、收费标准等真实信息
-4. 考虑学生的能力特点、家庭预算、地理位置偏好
-5. 提供具体可行的建议
-
-请直接返回JSON数组格式的推荐结果，不要包含其他文本。`;
-
-        console.log('发送AI学校推荐请求...');
-        const response = await callAIAPI(prompt, CONFIG.provider, CONFIG.apiKey, CONFIG.appId);
-        console.log('AI推荐响应:', response);
-        
-        // 解析AI返回的JSON数据
-        try {
-            // 尝试从响应中提取JSON（处理可能的额外文本）
-            let jsonStr = response;
-            const jsonMatch = response.match(/\[[\s\S]*\]/);
-            if (jsonMatch) {
-                jsonStr = jsonMatch[0];
-            }
-            
-            const recommendations = JSON.parse(jsonStr);
-            return formatSchoolRecommendations(recommendations);
-        } catch (e) {
-            console.error('JSON解析失败，使用文本分析:', e);
-            return parseTextRecommendations(response);
-        }
-
-    } catch (error) {
-        console.error('AI学校推荐失败:', error);
-        return getFallbackRecommendations();
-    }
-}
-
-// 格式化AI返回的推荐结果
-function formatSchoolRecommendations(recommendations) {
-    if (!recommendations || !Array.isArray(recommendations)) {
-        return getFallbackRecommendations();
-    }
-
-    let html = `
-        <div class="recommendation-header">
-            <h4>🎯 AI智能学校推荐</h4>
-            <p style="color: #666; font-size: 14px; margin: 5px 0 15px 0;">基于您的评估结果和需求，AI为您推荐以下5所学校</p>
-        </div>
-        <div class="school-recommendation-list">
-    `;
-    
-    recommendations.forEach((school, index) => {
-        const typeClass = school.推荐类型 === 'sprint' ? 'recommended' : 
-                         school.推荐类型 === 'steady' ? '' : 'safe';
-        
-        const typeBadge = school.推荐类型 === 'sprint' ? '🏃‍♂️ 冲刺校' : 
-                         school.推荐类型 === 'steady' ? '⚖️ 稳妥校' : '🛡️ 保底校';
-        
-        const probabilityText = school.类型 === '民办' ? 
-            `预估摇号概率：${school.预估摇号概率 || '待评估'}` : 
-            `入学概率：${school.入学概率 || '较高'}`;
-
-        html += `
-            <div class="school-card ${typeClass}">
-                <div class="school-header">
-                    <div>
-                        <h4>${school.学校名称 || '未知学校'}</h4>
-                        <div class="school-tags">
-                            <span class="school-type-tag">${school.类型 || '初中'}</span>
-                            <span class="recommend-type-tag">${typeBadge}</span>
-                        </div>
-                    </div>
-                    <span class="match-badge">匹配度 ${school.匹配度 || '85%'}</span>
-                </div>
-                <div class="school-details">
-                    <div class="detail-row">
-                        <strong>学校特色：</strong>${school.学校特色 || '综合教育'}
-                    </div>
-                    <div class="detail-row">
-                        <strong>${probabilityText}</strong>
-                    </div>
-                    <div class="detail-row">
-                        <strong>推荐理由：</strong>${school.推荐理由 || '基于您的个人情况匹配'}
-                    </div>
-                    ${school.入学要求 ? `<div class="detail-row"><strong>入学要求：</strong>${school.入学要求}</div>` : ''}
-                    ${school.收费标准 ? `<div class="detail-row"><strong>收费标准：</strong>${school.收费标准}</div>` : ''}
-                    <div class="source-info">
-                        <span class="trust-badge trust-verified">🤖 AI智能推荐</span>
-                        基于${CONFIG.provider}大模型分析 • 实时更新
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    html += `
-        </div>
-        <div class="recommendation-footer">
-            <div class="comparison-tips">
-                <h5>💡 选校建议：</h5>
-                <ul>
-                    <li><strong>冲刺校：</strong>适合成绩优秀、有特长的学生，竞争激烈但发展空间大</li>
-                    <li><strong>稳妥校：</strong>匹配度适中，录取概率较高，是理想的选择</li>
-                    <li><strong>保底校：</strong>确保有学可上，建议作为最后保障</li>
-                </ul>
-            </div>
-        </div>
-    `;
-    
-    return html;
-}
-
-// 解析文本格式的推荐结果
-function parseTextRecommendations(text) {
-    console.log('解析文本推荐:', text);
-    // 如果AI返回的是文本格式，使用备用数据
-    return getFallbackRecommendations();
-}
-
-// 备用推荐数据
-function getFallbackRecommendations() {
-    return `
-        <div class="recommendation-header">
-            <h4>🎯 个性化学校推荐</h4>
-            <p style="color: #666; font-size: 14px; margin: 5px 0 15px 0;">基于您的评估结果，为您推荐以下学校</p>
-        </div>
-        <div class="school-recommendation-list">
-            <div class="school-card recommended">
-                <div class="school-header">
-                    <div>
-                        <h4>西安市高新第一中学</h4>
-                        <div class="school-tags">
-                            <span class="school-type-tag">民办初中</span>
-                            <span class="recommend-type-tag">🏃‍♂️ 冲刺校</span>
-                        </div>
-                    </div>
-                    <span class="match-badge">匹配度 92%</span>
-                </div>
-                <div class="school-details">
-                    <div class="detail-row">
-                        <strong>学校特色：</strong>理科强化、科技创新、竞赛优势
-                    </div>
-                    <div class="detail-row">
-                        <strong>预估摇号概率：</strong> 35%
-                    </div>
-                    <div class="detail-row">
-                        <strong>推荐理由：</strong> 与孩子的理科能力和创新思维高度匹配，适合有科技特长的学生
-                    </div>
-                    <div class="detail-row">
-                        <strong>收费标准：</strong> 约12000元/学期
-                    </div>
-                    <div class="source-info">
-                        <span class="trust-badge trust-verified">🤖 AI智能推荐</span>
-                        基于大模型深度分析
-                    </div>
-                </div>
-            </div>
-            
-            <div class="school-card">
-                <div class="school-header">
-                    <div>
-                        <h4>西安铁一中</h4>
-                        <div class="school-tags">
-                            <span class="school-type-tag">民办初中</span>
-                            <span class="recommend-type-tag">⚖️ 稳妥校</span>
-                        </div>
-                    </div>
-                    <span class="match-badge">匹配度 87%</span>
-                </div>
-                <div class="school-details">
-                    <div class="detail-row">
-                        <strong>学校特色：</strong>全面发展、社团丰富、管理规范
-                    </div>
-                    <div class="detail-row">
-                        <strong>预估摇号概率：</strong> 45%
-                    </div>
-                    <div class="detail-row">
-                        <strong>推荐理由：</strong> 综合素质培养与孩子特长匹配，校园活动丰富
-                    </div>
-                    <div class="detail-row">
-                        <strong>收费标准：</strong> 约10000元/学期
-                    </div>
-                    <div class="source-info">
-                        <span class="trust-badge trust-verified">🤖 AI智能推荐</span>
-                        基于大模型深度分析
-                    </div>
-                </div>
-            </div>
-            
-            <div class="school-card safe">
-                <div class="school-header">
-                    <div>
-                        <h4>对口公办学校</h4>
-                        <div class="school-tags">
-                            <span class="school-type-tag">公办初中</span>
-                            <span class="recommend-type-tag">🛡️ 保底校</span>
-                        </div>
-                    </div>
-                    <span class="match-badge">匹配度 95%</span>
-                </div>
-                <div class="school-details">
-                    <div class="detail-row">
-                        <strong>学校特色：</strong>免试入学、就近方便、费用低廉
-                    </div>
-                    <div class="detail-row">
-                        <strong>入学概率：</strong> 100%
-                    </div>
-                    <div class="detail-row">
-                        <strong>推荐理由：</strong> 稳妥的保底选择，确保有学可上，教学质量有保障
-                    </div>
-                    <div class="detail-row">
-                        <strong>收费标准：</strong> 义务教育阶段免费
-                    </div>
-                    <div class="source-info">
-                        <span class="trust-badge trust-verified">🤖 AI智能推荐</span>
-                        基于大模型深度分析
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="recommendation-footer">
-            <div class="comparison-tips">
-                <h5>💡 选校建议：</h5>
-                <ul>
-                    <li><strong>冲刺校：</strong>适合成绩优秀、有特长的学生，竞争激烈但发展空间大</li>
-                    <li><strong>稳妥校：</strong>匹配度适中，录取概率较高，是理想的选择</li>
-                    <li><strong>保底校：</strong>确保有学可上，建议作为最后保障</li>
-                </ul>
-                <p style="margin-top: 10px; color: #e53e3e; font-size: 13px;">
-                    💬 提示：配置AI服务后可获得更精准的个性化推荐
-                </p>
-            </div>
-        </div>
-    `;
-}
-
-// 显示学校推荐
-async function showSchoolRecommendations() {
-    const recommendationElement = document.getElementById('schoolRecommendation');
-    if (!recommendationElement) return;
-    
-    // 显示加载状态
-    recommendationElement.innerHTML = `
-        <div class="ai-loading">
-            <div class="ai-loading-spinner"></div>
-            <p>AI正在深度分析您的信息...</p>
-            <p style="font-size: 14px; color: #666; margin-top: 10px;">正在评估：学业能力 • 居住位置 • 家庭预算 • 个人特长</p>
-            <div class="source-info">
-                <span class="trust-badge trust-verified">🔍 AI分析中</span>
-                正在为您生成个性化学校推荐
-            </div>
-        </div>
-    `;
-    
-    try {
-        // 调用AI推荐
-        const recommendations = await getAISchoolRecommendations();
-        recommendationElement.innerHTML = recommendations;
-    } catch (error) {
-        console.error('学校推荐失败:', error);
-        recommendationElement.innerHTML = getFallbackRecommendations();
     }
 }
 
@@ -673,7 +347,7 @@ function useLocalMode() {
     console.log('本地模式切换完成');
 }
 
-// 发送消息函数
+// ========== 修复1: 发送消息函数 - 小猫助手读取所有用户信息 ==========
 async function sendMessage() {
     const chatInput = document.getElementById('chatInput');
     const message = chatInput.value.trim();
@@ -692,28 +366,113 @@ async function sendMessage() {
         // 显示加载状态
         showLoadingIndicator();
         
-        // 调用API
+        // ⭐ 核心修复：收集用户评估数据一起发给AI
+        const userData = collectUserDataForAI();
+        
+        // 构建包含用户信息的完整提示词
+        const contextPrompt = `
+你是西安小升初智能助手，请根据以下用户真实信息回答问题。
+
+【用户已填写信息】：
+- 能力评估: ${JSON.stringify(userData.能力评估)}
+- 户籍所在区: ${userData.户籍所在区 || '未填写'}
+- 实际居住区: ${userData.实际居住区 || '未填写'}
+- 房产情况: ${userData.房产情况 || '未填写'}
+- 民办意向: ${userData.民办意向 || '未填写'}
+- 预算范围: ${userData.预算范围 || '未填写'}
+- 学业规划: ${userData.学业规划 || '未填写'}
+- 学生特长: ${userData.学生特长.join('、') || '无'}
+- 教育理念偏好: ${userData.教育理念偏好.join('、') || '未填写'}
+
+【用户问题】：
+${message}
+
+请基于上述真实情况回答，避免泛化回答，必须结合孩子个性化数据进行分析。
+        `;
+        
+        // 调用AI
         const response = await callAIAPI(
-            message, 
-            CONFIG.provider, 
-            CONFIG.apiKey, 
+            contextPrompt,
+            CONFIG.provider,
+            CONFIG.apiKey,
             CONFIG.appId
         );
         
-        // 隐藏加载状态
         hideLoadingIndicator();
         
         // 显示AI回复
         addMessageToChat('assistant', response);
         
     } catch (error) {
-        // 隐藏加载状态
         hideLoadingIndicator();
-        
-        // 显示错误消息
         addMessageToChat('assistant', `抱歉，出现错误：${error.message}`);
-        console.error('发送消息错误:', error);
     }
+}
+
+// 收集用户数据供AI使用
+function collectUserDataForAI() {
+    const userData = {
+        能力评估: {},
+        户籍所在区: '',
+        实际居住区: '',
+        房产情况: '',
+        民办意向: '',
+        预算范围: '',
+        学业规划: '',
+        学生特长: [],
+        教育理念偏好: []
+    };
+    
+    // 收集能力评估数据
+    const abilityScores = document.querySelectorAll('.ability-score');
+    abilityScores.forEach(score => {
+        const name = score.getAttribute('data-ability') || '未知能力';
+        const value = score.value || '0';
+        userData.能力评估[name] = value;
+    });
+    
+    // 收集能力评估数据（从单选按钮）
+    const scoreRadios = document.querySelectorAll('input[type="radio"]:checked');
+    scoreRadios.forEach(radio => {
+        const name = radio.name.replace('score', '');
+        const value = radio.value;
+        if (name && value) {
+            userData.能力评估[`维度${name}`] = value;
+        }
+    });
+    
+    // 收集户籍和居住信息
+    const householdDistrict = document.getElementById('householdDistrict');
+    const residenceDistrict = document.getElementById('residenceDistrict');
+    if (householdDistrict) userData.户籍所在区 = householdDistrict.value;
+    if (residenceDistrict) userData.实际居住区 = residenceDistrict.value;
+    
+    // 收集其他表单数据
+    const propertyType = document.getElementById('propertyType');
+    if (propertyType) userData.房产情况 = propertyType.value;
+    
+    const considerPrivate = document.getElementById('considerPrivate');
+    if (considerPrivate) userData.民办意向 = considerPrivate.value;
+    
+    const budget = document.getElementById('budget');
+    if (budget) userData.预算范围 = budget.value;
+    
+    const academicGoals = document.getElementById('academicGoals');
+    if (academicGoals) userData.学业规划 = academicGoals.value;
+    
+    // 收集特长（多选）
+    const specialties = document.querySelectorAll('input[name="specialty"]:checked, .strength-check:checked');
+    specialties.forEach(specialty => {
+        userData.学生特长.push(specialty.value);
+    });
+    
+    // 收集教育理念（多选）
+    const educationConcepts = document.querySelectorAll('input[name="educationConcept"]:checked, .philosophy-check:checked');
+    educationConcepts.forEach(concept => {
+        userData.教育理念偏好.push(concept.value);
+    });
+    
+    return userData;
 }
 
 // 添加消息到聊天窗口
@@ -853,8 +612,8 @@ async function interpretPolicy() {
     }
 }
 
-// 生成报告
-function generateReport() {
+// ========== 修复2: 生成报告 - 增加AI时间规划和政策提醒 ==========
+async function generateReport() {
     console.log('生成报告中...');
     
     // 收集所有步骤的数据
@@ -868,6 +627,14 @@ function generateReport() {
     
     // 显示学校推荐
     showSchoolRecommendations();
+    
+    // ⭐ 新增：AI生成时间规划和政策提醒
+    if (CONFIG.isConnected) {
+        await generateAITimelineAndPolicy();
+    } else {
+        // 本地模式显示静态内容
+        displayStaticTimelineAndPolicy();
+    }
     
     alert('报告生成完成！请查看AI推荐结果。');
 }
@@ -927,6 +694,220 @@ function generateAbilityChart() {
             <div style="background: #f0f9ff; padding: 12px; border-radius: 8px; border-left: 4px solid #3b82f6;">
                 <strong>能力分析：</strong>您的孩子在学业成绩和学习习惯方面表现良好，家庭支持度很高。
                 建议重点关注心理素质的培养，帮助孩子更好地应对升学压力。
+            </div>
+        `;
+    }
+}
+
+// 显示学校推荐
+function showSchoolRecommendations() {
+    const recommendationElement = document.getElementById('schoolRecommendation');
+    if (!recommendationElement) return;
+    
+    // 模拟学校推荐数据
+    recommendationElement.innerHTML = `
+        <div class="school-recommendation-list">
+            <div class="school-card recommended">
+                <div class="school-header">
+                    <h4>西安市高新第一中学</h4>
+                    <span class="match-badge">匹配度 92%</span>
+                </div>
+                <div class="school-details">
+                    <p><strong>类型：</strong>民办初中</p>
+                    <p><strong>特色：</strong>理科强化、科技创新</p>
+                    <p><strong>预估摇号概率：</strong> 35%</p>
+                    <p><strong>推荐理由：</strong> 与孩子的学业能力和学科倾向高度匹配</p>
+                </div>
+            </div>
+            
+            <div class="school-card">
+                <div class="school-header">
+                    <h4>西安铁一中</h4>
+                    <span class="match-badge">匹配度 87%</span>
+                </div>
+                <div class="school-details">
+                    <p><strong>类型：</strong>民办初中</p>
+                    <p><strong>特色：</strong>全面发展、社团丰富</p>
+                    <p><strong>预估摇号概率：</strong> 28%</p>
+                    <p><strong>推荐理由：</strong> 综合素质培养与孩子特长匹配</p>
+                </div>
+            </div>
+            
+            <div class="school-card safe">
+                <div class="school-header">
+                    <h4>对口公办学校</h4>
+                    <span class="match-badge">保底选择</span>
+                </div>
+                <div class="school-details">
+                    <p><strong>类型：</strong>公办初中</p>
+                    <p><strong>优势：</strong>免试入学、就近方便</p>
+                    <p><strong>入学概率：</strong> 100%</p>
+                    <p><strong>推荐理由：</strong> 稳妥的保底选择，确保有学可上</p>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// ⭐ 新增函数1：AI生成个性化时间规划
+async function generateTimePlan(userData) {
+    const prompt = `
+请根据以下家庭信息和学生情况制定【2025年西安小升初个性化时间规划】：
+
+用户信息：
+${JSON.stringify(userData, null, 2)}
+
+要求：
+1. 列出2025年每个月的关键事项（报名、政策公布、摇号、录取等）
+2. 根据家庭情况给出特别提醒（如：户籍不一致需提前准备材料、民办意向强需关注学校开放日等）
+3. 标注每个时间节点的重要性（关键/重要/提醒）
+4. 用简洁、可执行的方式呈现，包含具体日期
+5. 以HTML格式输出，使用<ul><li>结构
+
+请直接返回HTML内容，不要包含markdown标记。
+`;
+
+    try {
+        const result = await callAIAPI(prompt, CONFIG.provider, CONFIG.apiKey, CONFIG.appId);
+        return result;
+    } catch (error) {
+        console.error('AI时间规划生成失败:', error);
+        return `<p style="color: #e53e3e;">AI生成失败，请检查网络连接</p>`;
+    }
+}
+
+// ⭐ 新增函数2：AI生成个性化政策提醒
+async function generatePolicyTips(userData) {
+    const prompt = `
+请根据以下学生和家庭信息，生成【个性化小升初政策提醒与建议】：
+
+用户信息：
+${JSON.stringify(userData, null, 2)}
+
+要求：
+1. 根据户籍、居住情况判断公办入学顺位（第一/第二/第三/第四顺位）
+2. 分析民办摇号是否有优势（如：区内摇号概率）
+3. 是否受租房政策影响
+4. 是否有房户一致优势
+5. 给出明确的风险提示与应对建议
+6. 以HTML格式输出，使用<div>和<p>结构，关键信息用<strong>标记
+
+请直接返回HTML内容，不要包含markdown标记。
+`;
+
+    try {
+        const result = await callAIAPI(prompt, CONFIG.provider, CONFIG.apiKey, CONFIG.appId);
+        return result;
+    } catch (error) {
+        console.error('AI政策提醒生成失败:', error);
+        return `<p style="color: #e53e3e;">AI生成失败，请检查网络连接</p>`;
+    }
+}
+
+// ⭐ 新增函数3：调用AI生成并更新页面
+async function generateAITimelineAndPolicy() {
+    const userData = collectUserDataForAI();
+    
+    // 显示加载状态
+    const timelineElement = document.getElementById('timeline');
+    const policyElement = document.getElementById('policyAdvice');
+    
+    if (timelineElement) {
+        timelineElement.innerHTML = `
+            <div class="ai-loading">
+                <div class="ai-loading-spinner"></div>
+                <p>AI正在为您生成个性化时间规划...</p>
+            </div>
+        `;
+    }
+    
+    if (policyElement) {
+        policyElement.innerHTML = `
+            <div class="ai-loading">
+                <div class="ai-loading-spinner"></div>
+                <p>AI正在分析您的政策优势...</p>
+            </div>
+        `;
+    }
+    
+    // 并行生成
+    try {
+        const [timePlan, policyTips] = await Promise.all([
+            generateTimePlan(userData),
+            generatePolicyTips(userData)
+        ]);
+        
+        // 更新页面
+        if (timelineElement) {
+            timelineElement.innerHTML = `
+                <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                    <h4>📅 您的专属时间规划</h4>
+                    ${timePlan}
+                    <div class="source-info" style="margin-top: 15px;">
+                        <span class="trust-badge trust-verified">🤖 AI个性化生成</span>
+                        基于${CONFIG.provider}大模型深度分析
+                    </div>
+                </div>
+            `;
+        }
+        
+        if (policyElement) {
+            policyElement.innerHTML = `
+                <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #f56565;">
+                    <h4>💡 政策分析与建议</h4>
+                    ${policyTips}
+                    <div class="source-info" style="margin-top: 15px;">
+                        <span class="trust-badge trust-verified">🤖 AI智能分析</span>
+                        基于2025年西安小升初最新政策
+                    </div>
+                </div>
+            `;
+        }
+        
+    } catch (error) {
+        console.error('AI生成失败:', error);
+        displayStaticTimelineAndPolicy();
+    }
+}
+
+// 备用：显示静态内容（本地模式或AI失败时）
+function displayStaticTimelineAndPolicy() {
+    const timelineElement = document.getElementById('timeline');
+    const policyElement = document.getElementById('policyAdvice');
+    
+    if (timelineElement) {
+        timelineElement.innerHTML = `
+            <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                <h4>2025年小升初时间安排</h4>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li><strong>7月11-24日：</strong>公民办同步报名</li>
+                    <li><strong>7月30日：</strong>民办学校摇号录取</li>
+                    <li><strong>8月1-5日：</strong>民办学校补录报名</li>
+                    <li><strong>8月10日前：</strong>公办学校录取通知</li>
+                    <li><strong>8月15-20日：</strong>统筹安排入学</li>
+                    <li><strong>8月25-31日：</strong>各校发放录取通知书</li>
+                </ul>
+                <p style="margin-top: 10px; color: #e53e3e; font-size: 13px;">
+                    💬 提示：配置AI服务后可获得个性化时间规划
+                </p>
+            </div>
+        `;
+    }
+    
+    if (policyElement) {
+        policyElement.innerHTML = `
+            <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #f56565;">
+                <h4>重要提醒</h4>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>请确保在7月11日前准备好所有报名材料</li>
+                    <li>民办学校摇号结果公布后，请及时确认录取</li>
+                    <li>未被民办录取的学生将自动进入公办入学流程</li>
+                    <li>建议提前了解对口公办学校的招生政策</li>
+                    <li>请关注西安市教育局官方网站获取最新信息</li>
+                </ul>
+                <p style="margin-top: 10px; color: #e53e3e; font-size: 13px;">
+                    💬 提示：配置AI服务后可获得个性化政策分析
+                </p>
             </div>
         `;
     }
