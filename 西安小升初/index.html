@@ -128,16 +128,73 @@
 
         <!-- 步骤指示器 -->
         <div class="step-indicator">
-            <div class="step active" id="step1-indicator" onclick="showStep(1)"><div class="step-number">1</div><div class="step-label">能力评估</div></div>
-            <div class="step" id="step2-indicator" onclick="showStep(2)"><div class="step-number">2</div><div class="step-label">户籍与居住</div></div>
-            <div class="step" id="step3-indicator" onclick="showStep(3)"><div class="step-number">3</div><div class="step-label">学区房产</div></div>
-            <div class="step" id="step4-indicator" onclick="showStep(4)"><div class="step-number">4</div><div class="step-label">民办意向</div></div>
-            <div class="step" id="step5-indicator" onclick="showStep(5)"><div class="step-number">5</div><div class="step-label">深度需求</div></div>
+            <div class="step active" id="step1-indicator" onclick="showStep(1)"><div class="step-number">1</div><div class="step-label">基础信息</div></div>
+            <div class="step" id="step2-indicator" onclick="showStep(2)"><div class="step-number">2</div><div class="step-label">能力评估</div></div>
+            <div class="step" id="step3-indicator" onclick="showStep(3)"><div class="step-number">3</div><div class="step-label">户籍与居住</div></div>
+            <div class="step" id="step4-indicator" onclick="showStep(4)"><div class="step-number">4</div><div class="step-label">学区房产</div></div>
+            <div class="step" id="step5-indicator" onclick="showStep(5)"><div class="step-number">5</div><div class="step-label">民办意向</div></div>
             <div class="step" id="step6-indicator" onclick="showStep(6)"><div class="step-number">6</div><div class="step-label">AI推荐</div></div>
         </div>
 
-        <!-- 步骤1：能力评估 -->
+        <!-- 步骤1：基础信息 -->
         <div id="step1" class="section active">
+            <!-- 新增：学生年级信息 -->
+            <div class="dimension-card">
+                <div class="dimension-title">🎓 学生当前年级</div>
+                <div class="dimension-desc">选择学生当前所在年级，用于精确的时间规划</div>
+                <div class="score-options">
+                    <div class="score-option">
+                        <input type="radio" name="currentGrade" id="grade5" value="五年级" checked>
+                        <label for="grade5" class="score-label">
+                            <span class="score-number">五年级</span>
+                            <span class="score-desc">2025年小升初</span>
+                        </label>
+                    </div>
+                    <div class="score-option">
+                        <input type="radio" name="currentGrade" id="grade4" value="四年级">
+                        <label for="grade4" class="score-label">
+                            <span class="score-number">四年级</span>
+                            <span class="score-desc">2026年小升初</span>
+                        </label>
+                    </div>
+                    <div class="score-option">
+                        <input type="radio" name="currentGrade" id="grade3" value="三年级">
+                        <label for="grade3" class="score-label">
+                            <span class="score-number">三年级</span>
+                            <span class="score-desc">2027年小升初</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dimension-card">
+                <div class="dimension-title">👦 学生基本信息</div>
+                <div class="dimension-desc">填写学生基本资料</div>
+                <div class="info-group">
+                    <label class="info-label">学生姓名（可选）</label>
+                    <input type="text" class="info-input" id="studentName" placeholder="请输入学生姓名">
+                </div>
+                <div class="info-group">
+                    <label class="info-label">学生性别</label>
+                    <select class="info-select" id="studentGender">
+                        <option value="">请选择</option>
+                        <option value="男">男生</option>
+                        <option value="女">女生</option>
+                    </select>
+                </div>
+                <div class="info-group">
+                    <label class="info-label">所在小学（可选）</label>
+                    <input type="text" class="info-input" id="currentSchool" placeholder="请输入所在小学名称">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="goToStep2()">下一步：能力评估 →</button>
+            </div>
+        </div>
+
+        <!-- 步骤2：能力评估 -->
+        <div id="step2" class="section">
             <div class="dimension-card">
                 <div class="dimension-title">📚 维度一：学业成绩</div>
                 <div class="dimension-desc">评估孩子在班级/年级的学业成绩排名情况</div>
@@ -211,12 +268,13 @@
             </div>
 
             <div class="button-group">
-                <button class="btn btn-primary" onclick="goToStep2()">下一步：户籍与居住信息 →</button>
+                <button class="btn btn-secondary" onclick="goToStep1()">← 上一步</button>
+                <button class="btn btn-primary" onclick="goToStep3()">下一步：户籍与居住信息 →</button>
             </div>
         </div>
 
-        <!-- 步骤2：户籍与居住信息 -->
-        <div id="step2" class="section">
+        <!-- 步骤3：户籍与居住信息 -->
+        <div id="step3" class="section">
             <div class="info-section">
                 <h3>🏠 户籍与居住信息</h3>
                 <p style="color: #718096; margin-bottom: 20px; font-size: 14px;">请准确填写户籍和实际居住信息，这将直接影响公办学校匹配和入学顺位评估</p>
@@ -333,13 +391,13 @@
             </div>
             
             <div class="button-group">
-                <button class="btn btn-secondary" onclick="goToStep1()">← 上一步</button>
-                <button class="btn btn-primary" onclick="goToStep3()">下一步：学区房产信息 →</button>
+                <button class="btn btn-secondary" onclick="goToStep2()">← 上一步</button>
+                <button class="btn btn-primary" onclick="goToStep4()">下一步：学区房产信息 →</button>
             </div>
         </div>
 
-        <!-- 步骤3：学区房产信息 -->
-        <div id="step3" class="section">
+        <!-- 步骤4：学区房产信息 -->
+        <div id="step4" class="section">
             <div class="info-section">
                 <h3>📋 学区房产信息</h3>
                 <p style="color: #718096; margin-bottom: 20px; font-size: 14px;">公办学校入学资格相关信息，请如实填写</p>
@@ -399,13 +457,13 @@
             </div>
             
             <div class="button-group">
-                <button class="btn btn-secondary" onclick="goToStep2()">← 上一步</button>
-                <button class="btn btn-primary" onclick="goToStep4()">下一步：民办意向与预算 →</button>
+                <button class="btn btn-secondary" onclick="goToStep3()">← 上一步</button>
+                <button class="btn btn-primary" onclick="goToStep5()">下一步：民办意向与预算 →</button>
             </div>
         </div>
 
-        <!-- 步骤4：民办意向与预算 -->
-        <div id="step4" class="section">
+        <!-- 步骤5：民办意向与预算 -->
+        <div id="step5" class="section">
             <div class="info-section">
                 <h3>💰 民办意向与预算</h3>
                 
@@ -459,78 +517,6 @@
                         <label class="checkbox-label"><input type="checkbox" value="体育" name="specialty" class="strength-check"> 体育</label>
                         <label class="checkbox-label"><input type="checkbox" value="科技" name="specialty" class="strength-check"> 科技</label>
                     </div>
-                </div>
-            </div>
-            
-            <div class="button-group">
-                <button class="btn btn-secondary" onclick="goToStep3()">← 上一步</button>
-                <button class="btn btn-primary" onclick="goToStep5()">下一步：深度需求分析 →</button>
-            </div>
-        </div>
-
-        <!-- 步骤5：深度需求分析 -->
-        <div id="step5" class="section">
-            <div class="feedback-section">
-                <h3>🎯 深度需求分析</h3>
-                
-                <div class="feedback-group">
-                    <label class="feedback-label">初中后的学业规划</label>
-                    <select class="feedback-select" id="academicGoals">
-                        <option value="">请选择</option>
-                        <option value="冲刺重点高中">冲刺重点高中</option>
-                        <option value="稳定升入普通高中" selected>稳定升入普通高中</option>
-                        <option value="考虑国际教育路径">考虑国际教育路径</option>
-                        <option value="尚未明确规划">尚未明确规划</option>
-                        <option value="根据孩子发展再定">根据孩子发展再定</option>
-                    </select>
-                </div>
-                
-                <div class="feedback-group">
-                    <label class="feedback-label">更看重学校的哪些方面（可多选）</label>
-                    <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" value="学术成绩和升学率" name="educationConcept" class="philosophy-check" checked> 学术成绩和升学率</label>
-                        <label class="checkbox-label"><input type="checkbox" value="综合素质培养" name="educationConcept" class="philosophy-check" checked> 综合素质培养</label>
-                        <label class="checkbox-label"><input type="checkbox" value="特色课程和社团活动" name="educationConcept" class="philosophy-check" checked> 特色课程和社团活动</label>
-                        <label class="checkbox-label"><input type="checkbox" value="学校管理和校风" name="educationConcept" class="philosophy-check" checked> 学校管理和校风</label>
-                        <label class="checkbox-label"><input type="checkbox" value="师生关系和校园氛围" name="educationConcept" class="philosophy-check" checked> 师生关系和校园氛围</label>
-                        <label class="checkbox-label"><input type="checkbox" value="地理位置和交通便利" name="educationConcept" class="philosophy-check" checked> 地理位置和交通便利</label>
-                    </div>
-                </div>
-                
-                <div class="feedback-group">
-                    <label class="feedback-label">孩子的特殊需求</label>
-                    <select class="feedback-select" id="specificNeeds">
-                        <option value="">请选择</option>
-                        <option value="需要重点关注和辅导">需要重点关注和辅导</option>
-                        <option value="有艺术体育特长需要发展">有艺术体育特长需要发展</option>
-                        <option value="需要外语特色环境">需要外语特色环境</option>
-                        <option value="需要住校或晚托服务" selected>需要住校或晚托服务</option>
-                        <option value="对校园设施有特殊要求">对校园设施有特殊要求</option>
-                        <option value="无特殊需求">无特殊需求</option>
-                    </select>
-                </div>
-                
-                <div class="feedback-group">
-                    <label class="feedback-label">教育选择的风险偏好</label>
-                    <select class="feedback-select" id="riskTolerance">
-                        <option value="">请选择</option>
-                        <option value="愿意冒险追求最好学校">愿意冒险追求最好学校</option>
-                        <option value="偏好稳妥可靠的选择" selected>偏好稳妥可靠的选择</option>
-                        <option value="希望在风险和收益间平衡">希望在风险和收益间平衡</option>
-                        <option value="完全规避不确定性">完全规避不确定性</option>
-                    </select>
-                </div>
-                
-                <div class="feedback-group">
-                    <label class="feedback-label">家庭可投入的教育时间</label>
-                    <select class="feedback-select" id="timeCommitment">
-                        <option value="">请选择</option>
-                        <option value="全职陪伴和辅导">全职陪伴和辅导</option>
-                        <option value="工作日晚上可辅导">工作日晚上可辅导</option>
-                        <option value="周末可集中陪伴" selected>周末可集中陪伴</option>
-                        <option value="时间有限主要靠学校">时间有限主要靠学校</option>
-                        <option value="需要学校全权负责">需要学校全权负责</option>
-                    </select>
                 </div>
             </div>
             
