@@ -126,14 +126,15 @@
             </div>
         </div>
 
-        <!-- 步骤指示器 -->
+        <!-- 步骤指示器 - 更新为7步 -->
         <div class="step-indicator">
             <div class="step active" id="step1-indicator" onclick="showStep(1)"><div class="step-number">1</div><div class="step-label">基础信息</div></div>
             <div class="step" id="step2-indicator" onclick="showStep(2)"><div class="step-number">2</div><div class="step-label">能力评估</div></div>
             <div class="step" id="step3-indicator" onclick="showStep(3)"><div class="step-number">3</div><div class="step-label">户籍与居住</div></div>
             <div class="step" id="step4-indicator" onclick="showStep(4)"><div class="step-number">4</div><div class="step-label">学区房产</div></div>
             <div class="step" id="step5-indicator" onclick="showStep(5)"><div class="step-number">5</div><div class="step-label">民办意向</div></div>
-            <div class="step" id="step6-indicator" onclick="showStep(6)"><div class="step-number">6</div><div class="step-label">AI推荐</div></div>
+            <div class="step" id="step6-indicator" onclick="showStep(6)"><div class="step-number">6</div><div class="step-label">能力分析</div></div>
+            <div class="step" id="step7-indicator" onclick="showStep(7)"><div class="step-number">7</div><div class="step-label">AI推荐</div></div>
         </div>
 
         <!-- 步骤1：基础信息 -->
@@ -284,7 +285,7 @@
                     <div class="location-section">
                         <h4>📍 户籍信息</h4>
                         <div class="info-group">
-                            <label class="info-label">户籍所在区</label>
+                            <label class="info-label">户籍所在区 <span style="color: #e53e3e;">*</span></label>
                             <select class="info-select" id="householdDistrict">
                                 <option value="">请选择区</option>
                                 <option value="新城区">新城区</option>
@@ -326,7 +327,7 @@
                     <div class="location-section">
                         <h4>🏡 实际居住信息</h4>
                         <div class="info-group">
-                            <label class="info-label">实际居住区</label>
+                            <label class="info-label">实际居住区 <span style="color: #e53e3e;">*</span></label>
                             <select class="info-select" id="residenceDistrict">
                                 <option value="">请选择区</option>
                                 <option value="新城区">新城区</option>
@@ -392,7 +393,7 @@
             
             <div class="button-group">
                 <button class="btn btn-secondary" onclick="goToStep2()">← 上一步</button>
-                <button class="btn btn-primary" onclick="goToStep4()">下一步：学区房产信息 →</button>
+                <button class="btn btn-primary" onclick="validateStep3() && goToStep4()">下一步：学区房产信息 →</button>
             </div>
         </div>
 
@@ -522,21 +523,30 @@
             
             <div class="button-group">
                 <button class="btn btn-secondary" onclick="goToStep4()">← 上一步</button>
-                <button class="btn btn-primary" onclick="generateReport()">生成分析报告 →</button>
+                <button class="btn btn-primary" onclick="goToStep6()">下一步：能力分析 →</button>
             </div>
         </div>
 
-        <!-- 步骤6：AI推荐 -->
+        <!-- 步骤6：能力分析（新增页面） -->
         <div id="step6" class="section">
-            <div id="familyProfile" class="family-profile-card"></div>
-
             <div class="result-card">
                 <div class="result-title">📊 学生能力雷达图</div>
-                <div class="chart-container" style="width: 90%; max-width: 500px; margin: 20px auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-                    <canvas id="abilityChart"></canvas>
-                    <div id="abilityAnalysis" class="ai-interpretation-box" style="text-align: left; margin-top: 20px;"></div>
+                <div class="chart-container" style="width: 90%; max-width: 600px; margin: 20px auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                    <canvas id="abilityChart" width="400" height="300"></canvas>
+                    <div id="abilityAnalysis" class="ai-interpretation-box" style="text-align: left; margin-top: 30px;"></div>
                 </div>
             </div>
+            
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="goToStep5()">← 上一步</button>
+                <button class="btn btn-primary" onclick="generateReport()">生成完整报告 →</button>
+            </div>
+        </div>
+
+        <!-- 步骤7：AI推荐（原步骤6） -->
+        <div id="step7" class="section">
+            <div id="familyProfile" class="family-profile-card"></div>
+
             <div class="result-card">
                 <div class="result-title">🏫 AI智能学校推荐</div>
                 <div id="schoolRecommendation">
@@ -562,7 +572,7 @@
             </div>
             
             <div class="button-group">
-                <button class="btn btn-secondary" onclick="goToStep5()">← 返回修改</button>
+                <button class="btn btn-secondary" onclick="goToStep6()">← 返回修改</button>
                 <button class="btn btn-primary" onclick="window.print()">🖨️ 打印报告</button>
                 <button class="btn btn-secondary" onclick="exportReportPDF()">📄 导出PDF</button>
                 <button class="btn btn-secondary" onclick="exportReportJSON()">📦 导出JSON</button>
