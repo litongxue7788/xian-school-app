@@ -14,69 +14,6 @@
     <script src="data/schools.js"></script>
     <script src="data/citations.js"></script>
     <script src="data/policy.js"></script>
-    <style>
-        /* 临时样式修复 */
-        .school-recommendation-list {
-            margin-top: 15px;
-        }
-        
-        .school-card {
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            background: white;
-        }
-        
-        .school-card.recommended {
-            border-left: 4px solid #48bb78;
-        }
-        
-        .school-card.safe {
-            border-left: 4px solid #4299e1;
-        }
-        
-        .school-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        
-        .match-badge {
-            background: #48bb78;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        
-        .school-details p {
-            margin: 5px 0;
-            font-size: 14px;
-        }
-        
-        .ai-loading {
-            text-align: center;
-            padding: 30px;
-        }
-        
-        .ai-loading-spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
 </head>
 <body>
     <!-- API状态指示器 -->
@@ -100,7 +37,7 @@
         <button class="config-btn secondary" onclick="useLocalMode()"><i class="fas fa-laptop"></i> 使用本地模式</button>
         <div class="config-help" id="providerHelp">
             <strong>通用说明：</strong><br>
-            - 前端仅访问本站 <code>/api/ai/route</code>，由后端转发到所选模型提供商，避免跨域与地域限制。<br>
+            - 前端仅访问本站 <code>/api/ai</code>，由后端转发到所选模型提供商，避免跨域与地域限制。<br>
             - 请在部署平台的环境变量中配置密钥，前端不保存密钥。<br>
             - 如需移动端全国可用：建议使用国内节点部署后端并开启 HTTPS/CDN；避免直连境外模型。<br>
             <br>
@@ -515,12 +452,12 @@
                 <div class="info-group">
                     <label class="info-label">孩子特长（可多选）</label>
                     <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" value="数学" class="strength-check"> 数学</label>
-                        <label class="checkbox-label"><input type="checkbox" value="语文" class="strength-check"> 语文</label>
-                        <label class="checkbox-label"><input type="checkbox" value="英语" class="strength-check"> 英语</label>
-                        <label class="checkbox-label"><input type="checkbox" value="艺术" class="strength-check"> 艺术</label>
-                        <label class="checkbox-label"><input type="checkbox" value="体育" class="strength-check"> 体育</label>
-                        <label class="checkbox-label"><input type="checkbox" value="科技" class="strength-check"> 科技</label>
+                        <label class="checkbox-label"><input type="checkbox" value="数学" name="specialty" class="strength-check"> 数学</label>
+                        <label class="checkbox-label"><input type="checkbox" value="语文" name="specialty" class="strength-check"> 语文</label>
+                        <label class="checkbox-label"><input type="checkbox" value="英语" name="specialty" class="strength-check"> 英语</label>
+                        <label class="checkbox-label"><input type="checkbox" value="艺术" name="specialty" class="strength-check"> 艺术</label>
+                        <label class="checkbox-label"><input type="checkbox" value="体育" name="specialty" class="strength-check"> 体育</label>
+                        <label class="checkbox-label"><input type="checkbox" value="科技" name="specialty" class="strength-check"> 科技</label>
                     </div>
                 </div>
             </div>
@@ -551,12 +488,12 @@
                 <div class="feedback-group">
                     <label class="feedback-label">更看重学校的哪些方面（可多选）</label>
                     <div class="checkbox-group">
-                        <label class="checkbox-label"><input type="checkbox" value="学术成绩和升学率" class="philosophy-check" checked> 学术成绩和升学率</label>
-                        <label class="checkbox-label"><input type="checkbox" value="综合素质培养" class="philosophy-check" checked> 综合素质培养</label>
-                        <label class="checkbox-label"><input type="checkbox" value="特色课程和社团活动" class="philosophy-check" checked> 特色课程和社团活动</label>
-                        <label class="checkbox-label"><input type="checkbox" value="学校管理和校风" class="philosophy-check" checked> 学校管理和校风</label>
-                        <label class="checkbox-label"><input type="checkbox" value="师生关系和校园氛围" class="philosophy-check" checked> 师生关系和校园氛围</label>
-                        <label class="checkbox-label"><input type="checkbox" value="地理位置和交通便利" class="philosophy-check" checked> 地理位置和交通便利</label>
+                        <label class="checkbox-label"><input type="checkbox" value="学术成绩和升学率" name="educationConcept" class="philosophy-check" checked> 学术成绩和升学率</label>
+                        <label class="checkbox-label"><input type="checkbox" value="综合素质培养" name="educationConcept" class="philosophy-check" checked> 综合素质培养</label>
+                        <label class="checkbox-label"><input type="checkbox" value="特色课程和社团活动" name="educationConcept" class="philosophy-check" checked> 特色课程和社团活动</label>
+                        <label class="checkbox-label"><input type="checkbox" value="学校管理和校风" name="educationConcept" class="philosophy-check" checked> 学校管理和校风</label>
+                        <label class="checkbox-label"><input type="checkbox" value="师生关系和校园氛围" name="educationConcept" class="philosophy-check" checked> 师生关系和校园氛围</label>
+                        <label class="checkbox-label"><input type="checkbox" value="地理位置和交通便利" name="educationConcept" class="philosophy-check" checked> 地理位置和交通便利</label>
                     </div>
                 </div>
                 
@@ -630,35 +567,12 @@
             
             <div class="result-card">
                 <div class="result-title">📅 个性化时间规划</div>
-                <div id="timeline">
-                    <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-top: 10px;">
-                        <h4>2025年小升初时间安排</h4>
-                        <ul style="margin: 10px 0; padding-left: 20px;">
-                            <li><strong>7月11-24日：</strong>公民办同步报名</li>
-                            <li><strong>7月30日：</strong>民办学校摇号录取</li>
-                            <li><strong>8月1-5日：</strong>民办学校补录报名</li>
-                            <li><strong>8月10日前：</strong>公办学校录取通知</li>
-                            <li><strong>8月15-20日：</strong>统筹安排入学</li>
-                            <li><strong>8月25-31日：</strong>各校发放录取通知书</li>
-                        </ul>
-                    </div>
-                </div>
+                <div id="timeline"></div>
             </div>
             
             <div class="result-card">
                 <div class="result-title">💡 政策提醒与建议</div>
-                <div id="policyAdvice">
-                    <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #f56565;">
-                        <h4>重要提醒</h4>
-                        <ul style="margin: 10px 0; padding-left: 20px;">
-                            <li>请确保在7月11日前准备好所有报名材料</li>
-                            <li>民办学校摇号结果公布后，请及时确认录取</li>
-                            <li>未被民办录取的学生将自动进入公办入学流程</li>
-                            <li>建议提前了解对口公办学校的招生政策</li>
-                            <li>请关注西安市教育局官方网站获取最新信息</li>
-                        </ul>
-                    </div>
-                </div>
+                <div id="policyAdvice"></div>
             </div>
             
             <div class="button-group">
