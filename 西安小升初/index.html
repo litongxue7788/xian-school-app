@@ -138,30 +138,30 @@
 
         <!-- 步骤1：基础信息 -->
         <div id="step1" class="section active">
-            <!-- 新增：学生年级信息 -->
+            <!-- 修正后的学生年级信息 -->
             <div class="dimension-card">
                 <div class="dimension-title">🎓 学生当前年级</div>
                 <div class="dimension-desc">选择学生当前所在年级，用于精确的时间规划</div>
                 <div class="score-options">
                     <div class="score-option">
-                        <input type="radio" name="currentGrade" id="grade5" value="五年级" checked>
+                        <input type="radio" name="currentGrade" id="grade6" value="六年级" checked>
+                        <label for="grade6" class="score-label">
+                            <span class="score-number">六年级</span>
+                            <span class="score-desc">2026年小升初</span>
+                        </label>
+                    </div>
+                    <div class="score-option">
+                        <input type="radio" name="currentGrade" id="grade5" value="五年级">
                         <label for="grade5" class="score-label">
                             <span class="score-number">五年级</span>
-                            <span class="score-desc">2025年小升初</span>
+                            <span class="score-desc">2027年小升初</span>
                         </label>
                     </div>
                     <div class="score-option">
                         <input type="radio" name="currentGrade" id="grade4" value="四年级">
                         <label for="grade4" class="score-label">
                             <span class="score-number">四年级</span>
-                            <span class="score-desc">2026年小升初</span>
-                        </label>
-                    </div>
-                    <div class="score-option">
-                        <input type="radio" name="currentGrade" id="grade3" value="三年级">
-                        <label for="grade3" class="score-label">
-                            <span class="score-number">三年级</span>
-                            <span class="score-desc">2027年小升初</span>
+                            <span class="score-desc">2028年小升初</span>
                         </label>
                     </div>
                 </div>
@@ -532,9 +532,9 @@
 
             <div class="result-card">
                 <div class="result-title">📊 学生能力雷达图</div>
-                <div class="chart-container" style="width: 90%; max-width: 400px; margin: 20px auto; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                <div class="chart-container" style="width: 90%; max-width: 500px; margin: 20px auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
                     <canvas id="abilityChart"></canvas>
-                    <div id="abilityAnalysis" class="ai-interpretation-box" style="text-align: left; margin-top: 15px; padding: 10px;"></div>
+                    <div id="abilityAnalysis" class="ai-interpretation-box" style="text-align: left; margin-top: 20px;"></div>
                 </div>
             </div>
             <div class="result-card">
