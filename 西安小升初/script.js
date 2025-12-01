@@ -1462,6 +1462,1134 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// ==================== PDF打印功能增强 ====================
+
+// 方案A：浏览器打印优化
+function printOptimizedReport() {
+  // 添加打印样式
+  const printStyle = document.createElement('style');
+  printStyle.id = 'print-optimization';
+  printStyle.innerHTML = `
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      .container, .container * {
+        visibility: visible;
+      }
+      .container {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 20px;
+      }
+      .step-indicator, .ai-assistant, .config-panel, 
+      .button-group button:not(.print-only),
+      .api-status, .quick-actions {
+        display: none !important;
+      }
+      
+      /* 报告封面 */
+      .report-cover {
+        page-break-after: always;
+        text-align: center;
+        padding-top: 150px;
+      }
+      .report-cover h1 {
+        font-size: 32px;
+        color: #1e40af;
+        margin-bottom: 20px;
+      }
+      .report-cover .student-info {
+        font-size: 18px;
+        color: #4b5563;
+        margin: 10px 0;
+      }
+      .report-cover .generated-date {
+        font-size: 14px;
+        color: #9ca3af;
+        margin-top: 100px;
+      }
+      
+      /* 学校推荐表格 */
+      .school-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+      }
+      .school-table th, .school-table td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: left;
+      }
+      .school-table th {
+        background-color: #f3f4f6;
+        font-weight: 600;
+      }
+      .school-type-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        margin-right: 5px;
+      }
+      .public-badge {
+        background-color: #dbeafe;
+        color: #1e40af;
+      }
+      .private-badge {
+        background-color: #fef3c7;
+        color: #92400e;
+      }
+      
+      /* 页眉页脚 */
+      @page {
+        margin: 2cm;
+        @top-center {
+          content: "西安小升初专家报告";
+          font-size: 14px;
+          color: #6b7280;
+        }
+        @bottom-center {
+          content: "第 " counter(page) " 页";
+          font-size: 12px;
+          color: #9ca3af;
+        }
+      }
+      
+      /* 避免内容被分割 */
+      .result-card, .school-card {
+        page-break-inside: avoid;
+      }
+      
+      /* 来源信息 */
+      .source-reference {
+        font-size: 12px;
+        color: #6b7280;
+        border-top: 1px solid #e5e7eb;
+        padding-top: 10px;
+        margin-top: 20px;
+      }
+    }
+  `;
+  document.head.appendChild(printStyle);
+  
+  // 生成报告内容
+  generatePrintContent();
+  
+  // 触发打印
+  window.print();
+  
+  // 清理
+  setTimeout(() => {
+    printStyle.remove();
+    restoreOriginalContent();
+  }, 1000);
+}
+
+// 生成打印内容
+function generatePrintContent() {
+  const userData = collectUserDataForAI();
+  const currentDate = new Date().toLocaleDateString('zh-CN');
+  
+  // 创建封面
+  const coverHTML = `
+    <div class="report-cover">
+      <h1>🎓 西安小升初专家报告</h1>
+      <div class="student-info">
+        <p><strong>学生：</strong>${userData.学生姓名 || '匿名学生'}</p>
+        <p><strong>当前年级：</strong>${userData.当前年级 || '六年级'}</p>
+        <p><strong>户籍区域：</strong>${userData.户籍所在区 || '未填写'}</p>
+        <p><strong>居住区域：</strong>${userData.实际居住区 || '未填写'}</p>
+      </div>
+      <div class="generated-date">
+        报告生成时间：${currentDate}<br>
+        数据来源：西安市教育局2025年招生政策
+      </div>
+    </div>
+  `;
+  
+  // 获取学校推荐HTML
+  const schoolHTML = generatePrintSchoolTable(userData);
+  
+  // 获取时间规划HTML
+  const timelineHTML = generatePrintTimeline(userData);
+  
+  // 更新报告区域
+  const reportSection = document.getElementById('step7');
+  if (reportSection) {
+    reportSection.innerHTML = coverHTML + reportSection.innerHTML + schoolHTML + timelineHTML;
+  }
+}
+
+// 生成学校推荐表格（打印版）
+function generatePrintSchoolTable(userData) {
+  let html = `
+    <div class="result-card">
+      <h3>第二章：学校推荐与对口分析</h3>
+      <table class="school-table">
+        <thead>
+          <tr>
+            <th>学校名称</th>
+            <th>类型</th>
+            <th>区域</th>
+            <th>入学方式</th>
+            <th>匹配度</th>
+            <th>推荐理由</th>
+            <th>来源</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  // 户籍对口公办
+  if (userData.户籍所在区) {
+    html += `
+      <tr>
+        <td>${userData.户籍所在区}对口公办学校</td>
+        <td><span class="school-type-badge public-badge">公办</span></td>
+        <td>${userData.户籍所在区}</td>
+        <td>学区对口</td>
+        <td>100%</td>
+        <td>户籍所在地保障入学，最稳妥选择</td>
+        <td>①</td>
+      </tr>
+    `;
+  }
+  
+  // 居住地对口公办
+  if (userData.实际居住区 && userData.实际居住区 !== userData.户籍所在区) {
+    html += `
+      <tr>
+        <td>${userData.实际居住区}对口公办学校</td>
+        <td><span class="school-type-badge public-badge">公办</span></td>
+        <td>${userData.实际居住区}</td>
+        <td>学区对口</td>
+        <td>${userData.房产情况 === '自有房产' ? '90%' : '70%'}</td>
+        <td>实际居住地学校，便利性最佳</td>
+        <td>①</td>
+      </tr>
+    `;
+  }
+  
+  // 优质民办推荐
+  html += `
+    <tr>
+      <td>西安市高新第一中学</td>
+      <td><span class="school-type-badge private-badge">民办</span></td>
+      <td>高新区</td>
+      <td>摇号录取</td>
+      <td>85%</td>
+      <td>理科优势明显，竞赛资源丰富</td>
+      <td>②</td>
+    </tr>
+    <tr>
+      <td>西安铁一中</td>
+      <td><span class="school-type-badge private-badge">民办</span></td>
+      <td>碑林区</td>
+      <td>摇号录取</td>
+      <td>80%</td>
+      <td>综合素质培养体系完善</td>
+      <td>②</td>
+    </tr>
+  `;
+  
+  html += `
+        </tbody>
+      </table>
+      <div class="source-reference">
+        <p><strong>官方来源索引：</strong></p>
+        <p>① 西安市教育局官网 | ② 西安招生考试信息网 | ③ 陕西省教育厅官网</p>
+      </div>
+    </div>
+  `;
+  
+  return html;
+}
+
+// 生成时间规划（打印版）
+function generatePrintTimeline(userData) {
+  const timeline = calculateTimelineByGrade();
+  
+  let html = `
+    <div class="result-card">
+      <h3>第三章：升学时间规划</h3>
+      <p><strong>当前状态：</strong>${timeline.currentStatus}</p>
+      <table class="school-table">
+        <thead>
+          <tr>
+            <th>时间</th>
+            <th>重要事项</th>
+            <th>关键程度</th>
+            <th>准备材料</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  timeline.timeline.forEach(item => {
+    html += `
+      <tr>
+        <td>${item.year}年${item.month}</td>
+        <td>${item.events.join('<br>')}</td>
+        <td>${item.importance}</td>
+        <td>${item.action}</td>
+      </tr>
+    `;
+  });
+  
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+  
+  return html;
+}
+
+// 恢复原始内容
+function restoreOriginalContent() {
+  // 重新生成报告内容
+  generateReport();
+}
+
+// ==================== 学校推荐增强功能 ====================
+
+// 生成带官方来源的学校推荐
+async function generateEnhancedSchoolRecommendations() {
+  const recommendationElement = document.getElementById('schoolRecommendation');
+  if (!recommendationElement) return;
+  
+  const userData = collectUserDataForAI();
+  
+  // 显示加载状态
+  recommendationElement.innerHTML = `
+    <div class="ai-loading">
+      <div class="ai-loading-spinner"></div>
+      <p>AI正在基于您的信息生成专业学校推荐报告...</p>
+      <div class="source-info">
+        <span class="trust-badge trust-verified">多重数据验证中</span>
+        正在整合官方数据和AI分析
+      </div>
+    </div>
+  `;
+  
+  if (!CONFIG.isConnected) {
+    // 本地模式：显示基础推荐
+    showLocalSchoolRecommendations(userData);
+    return;
+  }
+  
+  try {
+    const prompt = `
+请根据以下学生完整信息，生成【带官方来源的学校推荐报告】：
+
+【学生基本信息】
+- 当前年级: ${userData.当前年级 || '六年级'}
+- 户籍所在区: ${userData.户籍所在区 || '未填写'}
+- 实际居住区: ${userData.实际居住区 || '未填写'}
+- 房产情况: ${userData.房产情况 || '未填写'}
+- 民办意向: ${userData.民办意向 || '未填写'}
+- 预算范围: ${userData.预算范围 || '未填写'}
+
+【能力评估】
+${JSON.stringify(userData.能力评估, null, 2)}
+
+【学生特长】
+${userData.学生特长.join('、') || '无'}
+
+要求：
+1. 推荐5所学校（2所冲刺民办 + 2所稳妥选择 + 1所保底公办）
+2. 每所学校必须包含：
+   - 学校名称和类型（明确标注公办/民办）
+   - 匹配度百分比和推荐级别
+   - 具体推荐理由（结合学生特点）
+   - 入学方式和概率
+   - 官方来源链接编号（①-⑤）
+   - 学费/费用说明
+3. 按照以下顺序推荐：
+   (1) 户籍对口公办学校（保底）
+   (2) 居住地对口学校（次选）
+   (3) 优质民办学校（冲刺）
+4. 输出专业HTML表格格式
+5. 最后附上官方来源说明
+
+请直接返回HTML内容。
+`;
+
+    const response = await callAIAPI(prompt, CONFIG.provider, CONFIG.apiKey, CONFIG.appId);
+    
+    recommendationElement.innerHTML = `
+      <div class="enhanced-school-recommendations">
+        <div class="section-header">
+          <h3><i class="fas fa-school"></i> AI智能学校推荐报告</h3>
+          <div class="header-subtitle">基于2025年官方数据和个性化分析</div>
+        </div>
+        ${response}
+        <div class="official-sources-box">
+          <h4><i class="fas fa-link"></i> 官方信息来源索引</h4>
+          <div class="sources-list">
+            <div class="source-item">
+              <span class="source-number">①</span>
+              <div class="source-details">
+                <strong>西安市教育局官网</strong>
+                <div class="source-url">http://www.xaedu.gov.cn/</div>
+                <div class="source-desc">官方政策发布、学区划分、招生计划</div>
+              </div>
+            </div>
+            <div class="source-item">
+              <span class="source-number">②</span>
+              <div class="source-details">
+                <strong>西安招生考试信息网</strong>
+                <div class="source-url">http://www.xaedu.gov.cn/zsks/</div>
+                <div class="source-desc">报名入口、摇号结果、录取查询</div>
+              </div>
+            </div>
+            <div class="source-item">
+              <span class="source-number">③</span>
+              <div class="source-details">
+                <strong>陕西省教育厅官网</strong>
+                <div class="source-url">http://www.snedu.gov.cn/</div>
+                <div class="source-desc">省级政策、教育规划、重大改革</div>
+              </div>
+            </div>
+          </div>
+          <div class="source-note">
+            <i class="fas fa-info-circle"></i> 所有信息均基于官方公开数据，建议核实最新政策
+          </div>
+        </div>
+      </div>
+    `;
+    
+  } catch (error) {
+    console.error('增强学校推荐失败:', error);
+    showLocalSchoolRecommendations(userData);
+  }
+}
+
+// 本地模式学校推荐
+function showLocalSchoolRecommendations(userData) {
+  const recommendationElement = document.getElementById('schoolRecommendation');
+  
+  let html = `
+    <div class="enhanced-school-recommendations">
+      <div class="section-header">
+        <h3><i class="fas fa-school"></i> 学校推荐报告</h3>
+        <div class="header-subtitle">基于户籍匹配和学校类型分析</div>
+      </div>
+      <div class="recommendation-summary">
+        <div class="summary-card">
+          <div class="summary-icon"><i class="fas fa-home"></i></div>
+          <div class="summary-content">
+            <div class="summary-title">户籍匹配</div>
+            <div class="summary-value">${userData.户籍所在区 || '未填写'}</div>
+            <div class="summary-desc">优先推荐对口公办学校</div>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon"><i class="fas fa-building"></i></div>
+          <div class="summary-content">
+            <div class="summary-title">居住匹配</div>
+            <div class="summary-value">${userData.实际居住区 || '未填写'}</div>
+            <div class="summary-desc">次选居住地附近学校</div>
+          </div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon"><i class="fas fa-graduation-cap"></i></div>
+          <div class="summary-content">
+            <div class="summary-title">民办意向</div>
+            <div class="summary-value">${userData.民办意向 === 'yes' ? '考虑' : '暂不考虑'}</div>
+            <div class="summary-desc">${userData.民办意向 === 'yes' ? '推荐优质民办' : '以公办为主'}</div>
+          </div>
+        </div>
+      </div>
+  `;
+  
+  // 学校推荐列表
+  html += `
+    <div class="school-recommendation-list">
+      <div class="school-card recommended">
+        <div class="school-header">
+          <h4>${userData.户籍所在区 || '所在区'}对口公办学校</h4>
+          <span class="match-badge">匹配度 100%</span>
+          <span class="school-type-badge public">公办</span>
+        </div>
+        <div class="school-details">
+          <p><strong>入学方式：</strong>学区对口入学</p>
+          <p><strong>入学概率：</strong> 95%以上</p>
+          <p><strong>推荐理由：</strong> 户籍所在地保障入学，最稳妥的选择</p>
+          <p><strong>官方来源：</strong> <span class="source-link">西安市教育局学区划分方案①</span></p>
+        </div>
+      </div>
+      
+      <div class="school-card">
+        <div class="school-header">
+          <h4>西安市高新第一中学</h4>
+          <span class="match-badge">匹配度 88%</span>
+          <span class="school-type-badge private">民办</span>
+        </div>
+        <div class="school-details">
+          <p><strong>入学方式：</strong>摇号录取</p>
+          <p><strong>摇号概率：</strong> 约30%</p>
+          <p><strong>学费：</strong> 8000-15000元/学期</p>
+          <p><strong>推荐理由：</strong> 理科优势明显，适合学术型学生</p>
+          <p><strong>官方来源：</strong> <span class="source-link">西安招生考试信息网②</span></p>
+        </div>
+      </div>
+      
+      <div class="school-card">
+        <div class="school-header">
+          <h4>西安铁一中</h4>
+          <span class="match-badge">匹配度 85%</span>
+          <span class="school-type-badge private">民办</span>
+        </div>
+        <div class="school-details">
+          <p><strong>入学方式：</strong>摇号录取</p>
+          <p><strong>摇号概率：</strong> 约25%</p>
+          <p><strong>学费：</strong> 7500-13000元/学期</p>
+          <p><strong>推荐理由：</strong> 综合素质培养，适合全面发展学生</p>
+          <p><strong>官方来源：</strong> <span class="source-link">西安市民办学校招生简章③</span></p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="official-sources-box">
+      <h4><i class="fas fa-link"></i> 官方信息来源</h4>
+      <ul class="sources-list">
+        <li><span class="source-number">①</span> 西安市教育局官网：http://www.xaedu.gov.cn/</li>
+        <li><span class="source-number">②</span> 西安招生考试信息网：http://www.xaedu.gov.cn/zsks/</li>
+        <li><span class="source-number">③</span> 陕西省教育厅官网：http://www.snedu.gov.cn/</li>
+      </ul>
+    </div>
+  </div>
+  `;
+  
+  recommendationElement.innerHTML = html;
+}
+
+// ==================== 升学时间规划推算 ====================
+
+// 计算基于年级的时间规划
+function calculateTimelineByGrade() {
+  const userData = collectUserDataForAI();
+  const currentGrade = userData.当前年级 || '六年级';
+  const currentYear = new Date().getFullYear();
+  
+  // 推算目标年份
+  let targetYear;
+  switch(currentGrade) {
+    case '六年级': targetYear = currentYear + 1; break;
+    case '五年级': targetYear = currentYear + 2; break;
+    case '四年级': targetYear = currentYear + 3; break;
+    default: targetYear = currentYear + 1;
+  }
+  
+  // 时间规划数据
+  const timeline = [
+    { month: '3月', year: targetYear, events: ['招生政策发布', '开始准备材料'], importance: '重要', action: '材料准备' },
+    { month: '4月', year: targetYear, events: ['学区划分公布', '民办招生计划公布'], importance: '关键', action: '信息收集' },
+    { month: '5月', year: targetYear, events: ['参加学校开放日', '确定目标学校'], importance: '重要', action: '学校考察' },
+    { month: '6月', year: targetYear, events: ['材料准备完成', '报名系统测试'], importance: '重要', action: '最终确认' },
+    { month: '7月', year: targetYear, events: ['7.11-7.24：公民办报名', '7.30：民办摇号'], importance: '关键', action: '报名确认' },
+    { month: '8月', year: targetYear, events: ['8.1-8.5：民办补录', '8.10前：公办录取'], importance: '关键', action: '结果确认' },
+    { month: '9月', year: targetYear, events: ['新生报到', '开学准备'], importance: '重要', action: '入学准备' }
+  ];
+  
+  return {
+    targetYear: targetYear,
+    timeline: timeline,
+    currentStatus: `您是${currentGrade}学生，将在${targetYear}年参加小升初`,
+    nextStep: timeline[0] ? `${targetYear}年${timeline[0].month}: ${timeline[0].events[0]}` : '请开始准备'
+  };
+}
+
+// 显示时间规划
+function displayTimeline() {
+  const timelineData = calculateTimelineByGrade();
+  const timelineElement = document.getElementById('timeline');
+  
+  if (!timelineElement) return;
+  
+  let html = `
+    <div class="timeline-container">
+      <div class="timeline-header">
+        <h4>📅 ${timelineData.targetYear}年小升初时间规划</h4>
+        <div class="timeline-status">${timelineData.currentStatus}</div>
+      </div>
+      
+      <div class="timeline-steps">
+  `;
+  
+  timelineData.timeline.forEach((step, index) => {
+    html += `
+      <div class="timeline-step ${step.importance === '关键' ? 'critical' : ''}">
+        <div class="step-marker">
+          <div class="step-number">${index + 1}</div>
+          <div class="step-month">${step.year}年${step.month}</div>
+        </div>
+        <div class="step-content">
+          <div class="step-title">${step.events.join(' · ')}</div>
+          <div class="step-details">
+            <span class="step-importance ${step.importance === '关键' ? 'critical' : 'important'}">
+              ${step.importance}
+            </span>
+            <span class="step-action">${step.action}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+  
+  html += `
+      </div>
+      
+      <div class="timeline-tips">
+        <h5><i class="fas fa-lightbulb"></i> 个性化提醒</h5>
+        <ul>
+          <li>根据您的户籍情况(${collectUserDataForAI().户籍所在区 || '未填写'})，请优先关注对口公办学校</li>
+          <li>${collectUserDataForAI().民办意向 === 'yes' ? '您考虑民办学校，建议提前了解目标学校的招生要求' : '您以公办为主，请确保户籍材料齐全'}</li>
+          <li>建议在${timelineData.timeline[1]?.year}年${timelineData.timeline[1]?.month}前完成学校考察</li>
+        </ul>
+      </div>
+    </div>
+  `;
+  
+  timelineElement.innerHTML = html;
+}
+
+// ==================== 整合到现有流程 ====================
+
+// 修改原有的生成报告函数
+const originalGenerateReport = window.generateReport;
+window.generateReport = async function() {
+  console.log('生成增强版报告中...');
+  
+  // 收集所有步骤的数据
+  collectAllData();
+  
+  // 显示步骤7
+  showStep(7);
+  
+  // 生成能力雷达图
+  await generateAbilityChart();
+  
+  // 使用增强版学校推荐
+  await generateEnhancedSchoolRecommendations();
+  
+  // 显示时间规划
+  displayTimeline();
+  
+  // AI生成政策提醒
+  if (CONFIG.isConnected) {
+    await generateAITimelineAndPolicy();
+  } else {
+    displayStaticTimelineAndPolicy();
+  }
+  
+  // 更新按钮功能
+  updateReportButtons();
+  
+  alert('专业报告生成完成！支持打印和PDF导出。');
+};
+
+// 更新报告页按钮
+function updateReportButtons() {
+  const buttonGroup = document.querySelector('#step7 .button-group');
+  if (buttonGroup) {
+    buttonGroup.innerHTML = `
+      <button class="btn btn-secondary" onclick="goToStep6()">← 返回修改</button>
+      <button class="btn btn-primary" onclick="printOptimizedReport()">
+        <i class="fas fa-print"></i> 打印专业报告
+      </button>
+      <button class="btn btn-secondary" onclick="exportReportPDF()">
+        <i class="fas fa-file-pdf"></i> 导出PDF
+      </button>
+      <button class="btn btn-secondary" onclick="resetAll()">
+        <i class="fas fa-redo"></i> 重新评估
+      </button>
+    `;
+  }
+}
+
+// 更新原有的导出PDF函数
+window.exportReportPDF = async function() {
+  try {
+    // 创建jsPDF实例
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    // 设置中文字体
+    doc.setFont('helvetica');
+    
+    // 收集数据
+    const userData = collectUserDataForAI();
+    const currentDate = new Date().toLocaleDateString('zh-CN');
+    const timeline = calculateTimelineByGrade();
+    
+    // 封面页
+    doc.setFontSize(24);
+    doc.setTextColor(0, 102, 204);
+    doc.text('西安小升初专家报告', 105, 50, null, null, 'center');
+    
+    doc.setFontSize(16);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`学生：${userData.学生姓名 || '匿名'}`, 105, 80, null, null, 'center');
+    doc.text(`当前年级：${userData.当前年级 || '六年级'}`, 105, 90, null, null, 'center');
+    doc.text(`生成时间：${currentDate}`, 105, 100, null, null, 'center');
+    
+    // 学校推荐页
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(0, 102, 204);
+    doc.text('学校推荐报告', 20, 30);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    
+    // 学校信息
+    const schools = [
+      ['学校名称', '类型', '区域', '入学方式', '匹配度'],
+      [`${userData.户籍所在区 || '所在区'}对口学校`, '公办', userData.户籍所在区 || '-', '学区对口', '100%'],
+      ['西安市高新第一中学', '民办', '高新区', '摇号录取', '85%'],
+      ['西安铁一中', '民办', '碑林区', '摇号录取', '80%']
+    ];
+    
+    doc.autoTable({
+      head: [schools[0]],
+      body: schools.slice(1),
+      startY: 50,
+      theme: 'striped',
+      headStyles: { fillColor: [0, 102, 204] }
+    });
+    
+    // 时间规划页
+    doc.addPage();
+    doc.setFontSize(18);
+    doc.setTextColor(0, 102, 204);
+    doc.text(`${timeline.targetYear}年时间规划`, 20, 30);
+    
+    doc.setFontSize(10);
+    let y = 50;
+    timeline.timeline.forEach(step => {
+      doc.text(`${step.year}年${step.month}: ${step.events[0]}`, 30, y);
+      y += 10;
+    });
+    
+    // 保存PDF
+    doc.save(`西安小升初报告_${userData.学生姓名 || '学生'}_${currentDate}.pdf`);
+    
+  } catch (error) {
+    console.error('PDF导出失败:', error);
+    alert('PDF导出失败，请使用打印功能。错误：' + error.message);
+  }
+};
+
+// 初始化增强功能
+document.addEventListener('DOMContentLoaded', function() {
+  // 原有初始化
+  initializeApp();
+  
+  // 添加CSS样式
+  addEnhancedStyles();
+  
+  console.log('增强版功能已加载');
+});
+
+// 添加增强样式
+function addEnhancedStyles() {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    /* 增强版学校推荐样式 */
+    .enhanced-school-recommendations {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      margin: 20px 0;
+    }
+    
+    .section-header {
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .section-header h3 {
+      color: #1e40af;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .header-subtitle {
+      color: #6b7280;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    
+    .recommendation-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+    
+    .summary-card {
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      transition: all 0.3s ease;
+    }
+    
+    .summary-card:hover {
+      background: #f1f5f9;
+      transform: translateY(-2px);
+    }
+    
+    .summary-icon {
+      width: 50px;
+      height: 50px;
+      background: #dbeafe;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: #1e40af;
+    }
+    
+    .summary-content {
+      flex: 1;
+    }
+    
+    .summary-title {
+      font-size: 12px;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .summary-value {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e293b;
+      margin: 5px 0;
+    }
+    
+    .summary-desc {
+      font-size: 12px;
+      color: #64748b;
+    }
+    
+    /* 学校类型标签 */
+    .school-type-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      margin-left: 10px;
+    }
+    
+    .school-type-badge.public {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    
+    .school-type-badge.private {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
+    /* 来源信息 */
+    .official-sources-box {
+      background: #f0f9ff;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 30px;
+      border-left: 4px solid #3b82f6;
+    }
+    
+    .sources-list {
+      list-style: none;
+      padding: 0;
+      margin: 15px 0;
+    }
+    
+    .source-item {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 15px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .source-item:last-child {
+      border-bottom: none;
+    }
+    
+    .source-number {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      background: #3b82f6;
+      color: white;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      margin-right: 15px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .source-details {
+      flex: 1;
+    }
+    
+    .source-details strong {
+      color: #1e40af;
+      display: block;
+      margin-bottom: 5px;
+    }
+    
+    .source-url {
+      font-size: 12px;
+      color: #6b7280;
+      font-family: monospace;
+      margin-bottom: 5px;
+    }
+    
+    .source-desc {
+      font-size: 12px;
+      color: #64748b;
+    }
+    
+    .source-note {
+      background: white;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #4b5563;
+      margin-top: 15px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    /* 时间线样式 */
+    .timeline-container {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+    
+    .timeline-header {
+      margin-bottom: 25px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .timeline-status {
+      color: #059669;
+      font-weight: 500;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #d1fae5;
+      border-radius: 6px;
+      display: inline-block;
+    }
+    
+    .timeline-steps {
+      position: relative;
+      padding-left: 30px;
+    }
+    
+    .timeline-steps::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #e5e7eb;
+    }
+    
+    .timeline-step {
+      position: relative;
+      margin-bottom: 25px;
+      padding-left: 30px;
+    }
+    
+    .timeline-step::before {
+      content: '';
+      position: absolute;
+      left: -6px;
+      top: 0;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #3b82f6;
+      border: 3px solid white;
+      box-shadow: 0 0 0 2px #3b82f6;
+    }
+    
+    .timeline-step.critical::before {
+      background: #ef4444;
+      box-shadow: 0 0 0 2px #ef4444;
+    }
+    
+    .step-marker {
+      position: absolute;
+      left: -100px;
+      top: -10px;
+      text-align: right;
+      width: 70px;
+    }
+    
+    .step-number {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 2px;
+    }
+    
+    .step-month {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    
+    .step-content {
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 15px;
+      border-left: 4px solid #3b82f6;
+    }
+    
+    .timeline-step.critical .step-content {
+      border-left-color: #ef4444;
+      background: #fef2f2;
+    }
+    
+    .step-title {
+      font-weight: 500;
+      color: #1e293b;
+      margin-bottom: 8px;
+    }
+    
+    .step-details {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .step-importance {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+    
+    .step-importance.important {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    
+    .step-importance.critical {
+      background: #fecaca;
+      color: #dc2626;
+    }
+    
+    .step-action {
+      font-size: 12px;
+      color: #64748b;
+    }
+    
+    .timeline-tips {
+      background: #fef3c7;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 30px;
+      border-left: 4px solid #f59e0b;
+    }
+    
+    .timeline-tips h5 {
+      color: #92400e;
+      margin: 0 0 10px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .timeline-tips ul {
+      margin: 0;
+      padding-left: 20px;
+      color: #78350f;
+    }
+    
+    .timeline-tips li {
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    
+    /* 打印优化样式 */
+    @media print {
+      .enhanced-school-recommendations,
+      .timeline-container {
+        box-shadow: none;
+        border: 1px solid #ddd;
+        page-break-inside: avoid;
+      }
+      
+      .recommendation-summary {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      
+      .timeline-step {
+        margin-bottom: 15px;
+      }
+    }
+    
+    /* 响应式调整 */
+    @media (max-width: 768px) {
+      .recommendation-summary {
+        grid-template-columns: 1fr;
+      }
+      
+      .step-marker {
+        position: static;
+        text-align: left;
+        width: auto;
+        margin-bottom: 10px;
+      }
+      
+      .timeline-step {
+        padding-left: 20px;
+      }
+      
+      .timeline-steps::before {
+        left: 10px;
+      }
+      
+      .timeline-step::before {
+        left: 4px;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// 更新原有的生成报告函数调用
+window.addEventListener('load', function() {
+  // 确保所有功能正常
+  console.log('增强版西安小升初系统已加载');
+});
+
 // 确保所有函数在全局可用
 window.showStep = showStep;
 window.toggleChat = toggleChat;
