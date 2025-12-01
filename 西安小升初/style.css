@@ -350,3 +350,348 @@ h1 {
     .step { flex: 0 0 100%; }
     .score-options { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ==================== 增强版样式 ==================== */
+
+/* PDF打印按钮样式 */
+.print-only {
+  display: none;
+}
+
+@media print {
+  .print-only {
+    display: inline-block;
+  }
+}
+
+/* 学校来源标签 */
+.source-link {
+  color: #1e40af;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.source-link:hover {
+  color: #1e3a8a;
+}
+
+/* 匹配度徽章 */
+.match-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-left: 10px;
+}
+
+.match-badge[data-match="high"] {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.match-badge[data-match="medium"] {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.match-badge[data-match="low"] {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* 入学顺位指示器 */
+.priority-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.priority-level {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.priority-1 {
+  background: #d1fae5;
+  color: #065f46;
+  border: 2px solid #10b981;
+}
+
+.priority-2 {
+  background: #fef3c7;
+  color: #92400e;
+  border: 2px solid #f59e0b;
+}
+
+.priority-3 {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 2px solid #ef4444;
+}
+
+/* 时间轴日期 */
+.timeline-date {
+  font-weight: 600;
+  color: #1e40af;
+  background: #dbeafe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-right: 10px;
+}
+
+/* 学校详情卡片增强 */
+.school-card .school-details p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.school-card .school-details strong {
+  color: #374151;
+  min-width: 80px;
+  display: inline-block;
+}
+
+/* 官方数据标记 */
+.official-data {
+  border-left: 3px solid #10b981;
+  padding-left: 12px;
+  margin: 10px 0;
+}
+
+.official-data::before {
+  content: "📋 官方数据";
+  font-size: 12px;
+  color: #10b981;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 5px;
+}
+
+/* 风险提示框 */
+.risk-warning {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 15px 0;
+}
+
+.risk-warning h4 {
+  color: #dc2626;
+  margin: 0 0 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 建议框 */
+.suggestion-box {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 15px;
+  margin: 15px 0;
+}
+
+.suggestion-box h4 {
+  color: #0369a1;
+  margin: 0 0 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 材料清单 */
+.materials-list {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 15px 0;
+}
+
+.materials-list h5 {
+  color: #1e40af;
+  margin-top: 0;
+}
+
+.materials-list ul {
+  columns: 2;
+  column-gap: 30px;
+}
+
+@media (max-width: 768px) {
+  .materials-list ul {
+    columns: 1;
+  }
+}
+
+/* 学区匹配结果 */
+.district-match {
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  padding: 25px;
+  margin: 20px 0;
+  border: 1px solid #bae6fd;
+}
+
+.district-match h4 {
+  color: #0369a1;
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.match-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 15px 0;
+  padding: 15px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.match-result .match-label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.match-result .match-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e40af;
+}
+
+/* 民办概率指示器 */
+.lottery-probability {
+  width: 100%;
+  height: 20px;
+  background: #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 10px 0;
+  position: relative;
+}
+
+.lottery-probability .probability-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #10b981, #3b82f6);
+  border-radius: 10px;
+  transition: width 1s ease;
+}
+
+.lottery-probability .probability-text {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 12px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* 费用对比 */
+.fee-comparison {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+}
+
+.fee-card {
+  background: white;
+  border-radius: 10px;
+  padding: 20px;
+  border: 2px solid #e5e7eb;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.fee-card.public {
+  border-color: #10b981;
+}
+
+.fee-card.private {
+  border-color: #f59e0b;
+}
+
+.fee-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.fee-card .fee-type {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.fee-card .fee-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 10px 0;
+}
+
+.fee-card .fee-period {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* 响应式调整 */
+@media (max-width: 640px) {
+  .match-result {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .fee-comparison {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 打印优化 */
+@media print {
+  .api-status,
+  .ai-assistant,
+  .config-panel,
+  .step-indicator,
+  .button-group button:not(.print-btn) {
+    display: none !important;
+  }
+  
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+  
+  .result-card {
+    page-break-inside: avoid;
+    margin: 20px 0 !important;
+    border: 1px solid #ddd !important;
+  }
+  
+  .school-card {
+    break-inside: avoid;
+  }
+  
+  @page {
+    margin: 2cm;
+  }
+}
