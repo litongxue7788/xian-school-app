@@ -2611,3 +2611,612 @@ window.goToStep4 = goToStep4;
 window.goToStep5 = goToStep5;
 window.goToStep6 = goToStep6;
 window.goToStep7 = goToStep7;
+// ==================== 优化小猫助手（完整版）====================
+
+// 全局存储用户所有信息
+let userAllData = {
+    基本信息: {},
+    能力评估: {},
+    户籍居住: {},
+    学区房产: {},
+    家庭意向: {},
+    AI分析记录: [],
+    最后更新: null
+};
+
+// 自动收集所有数据
+function collectAllData() {
+    const now = new Date();
+    
+    // 1. 基本信息
+    userAllData.基本信息 = {
+        学生姓名: document.getElementById('studentName')?.value || '',
+        学生性别: document.getElementById('studentGender')?.value || '',
+        当前年级: document.querySelector('input[name="currentGrade"]:checked')?.value || '',
+        所在小学: document.getElementById('currentSchool')?.value || ''
+    };
+    
+    // 2. 能力评估
+    userAllData.能力评估 = {
+        学业成绩: document.querySelector('input[name="score1"]:checked')?.value || '未评估',
+        综合素养: document.querySelector('input[name="score2"]:checked')?.value || '未评估',
+        学习习惯: document.querySelector('input[name="score3"]:checked')?.value || '未评估',
+        心理素质: document.querySelector('input[name="score4"]:checked')?.value || '未评估',
+        家庭支持: document.querySelector('input[name="score5"]:checked')?.value || '未评估',
+        学科倾向: document.querySelector('input[name="score6"]:checked')?.value || '未评估'
+    };
+    
+    // 3. 户籍居住
+    userAllData.户籍居住 = {
+        户籍所在区: document.getElementById('householdDistrict')?.value || '',
+        实际居住区: document.getElementById('residenceDistrict')?.value || '',
+        居住性质: document.getElementById('residenceType')?.value || ''
+    };
+    
+    // 4. 学区房产
+    userAllData.学区房产 = {
+        学区房情况: document.getElementById('hasHouse')?.value || '',
+        房产证类型: document.getElementById('propertyType')?.value || '',
+        持有时间: document.getElementById('propertyYears')?.value || ''
+    };
+    
+    // 5. 家庭意向
+    userAllData.家庭意向 = {
+        是否考虑民办: document.getElementById('considerPrivate')?.value || '',
+        跨区范围: document.getElementById('crossDistrictPreference')?.value || '',
+        三年预算: document.getElementById('budget')?.value || '',
+        摇号态度: document.getElementById('acceptLottery')?.value || '',
+        孩子特长: getSelectedSpecialties()
+    };
+    
+    userAllData.最后更新 = now.toLocaleString('zh-CN');
+    
+    // 保存到本地
+    localStorage.setItem('xiaoshengchu_user_data', JSON.stringify(userAllData));
+    
+    return userAllData;
+}
+
+// 获取选中的特长
+function getSelectedSpecialties() {
+    const checkboxes = document.querySelectorAll('input[name="specialty"]:checked');
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+// 优化的小猫回答函数（覆盖原有函数）
+async function sendMessage() {
+    const userInput = document.getElementById('chatInput').value.trim();
+    if (!userInput) return;
+    
+    // 显示用户消息
+    addUserMessage(userInput);
+    document.getElementById('chatInput').value = '';
+    
+    // 显示"思考中"
+    const chatBody = document.getElementById('chatBody');
+    const thinkingDiv = document.createElement('div');
+    thinkingDiv.className = 'ai-message assistant';
+    thinkingDiv.innerHTML = `
+        <div class="message-avatar">🐱</div>
+        <div class="message-content">
+            小喵正在思考中... 
+            <div style="display:inline-block;">
+                <span style="animation: dot1 1.5s infinite">.</span>
+                <span style="animation: dot2 1.5s infinite">.</span>
+                <span style="animation: dot3 1.5s infinite">.</span>
+            </div>
+            <style>
+                @keyframes dot1 { 0%, 20% { opacity: 0; } 40%, 100% { opacity: 1; } }
+                @keyframes dot2 { 0%, 40% { opacity: 0; } 60%, 100% { opacity: 1; } }
+                @keyframes dot3 { 0%, 60% { opacity: 0; } 80%, 100% { opacity: 1; } }
+            </style>
+        </div>
+    `;
+    chatBody.appendChild(thinkingDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+    
+    try {
+        // 收集所有数据
+        const allData = collectAllData();
+        
+        // 检查是否询问学校推荐但未完成评估
+        const isAskingSchools = userInput.includes('学校') || 
+                               userInput.includes('推荐') || 
+                               userInput.includes('上什么');
+        
+        const completedSteps = getCompletedStepsCount();
+        
+        if (isAskingSchools && completedSteps < 5) {
+            // 未完成评估，给出引导
+            thinkingDiv.remove();
+            
+            let guideMessage = `🐱 **小喵升学助手提示**\n\n`;
+            guideMessage += `📋 **当前状态**：您已完成 ${completedSteps}/7 步骤\n\n`;
+            guideMessage += `🎯 **要获得准确学校推荐**，请先完成：\n`;
+            
+            if (!allData.基本信息.当前年级) {
+                guideMessage += `• 第一步：选择学生当前年级\n`;
+            }
+            if (!allData.能力评估.学业成绩 || !allData.能力评估.综合素养) {
+                guideMessage += `• 第二步：完成能力评估（至少2个维度）\n`;
+            }
+            if (!allData.户籍居住.户籍所在区) {
+                guideMessage += `• 第三步：填写户籍信息\n`;
+            }
+            if (!allData.学区房产.学区房情况) {
+                guideMessage += `• 第四步：填写学区房产信息\n`;
+            }
+            if (!allData.家庭意向.是否考虑民办) {
+                guideMessage += `• 第五步：填写民办意向\n`;
+            }
+            
+            guideMessage += `\n💡 **立即行动**：点击上方步骤指示器继续填写，完成后AI会给出精准推荐！`;
+            
+            addAIMessage(guideMessage);
+            return;
+        }
+        
+        // 构建智能提示
+        let prompt = `用户问题："${userInput}"
+        
+用户已填写的信息：
+
+【学生情况】
+• 姓名：${allData.基本信息.学生姓名 || '未填写'}
+• 年级：${allData.基本信息.当前年级 || '未选择'}（${allData.基本信息.当前年级 === '六年级' ? '2026年小升初' : allData.基本信息.当前年级 === '五年级' ? '2027年小升初' : '2028年小升初'}）
+• 所在小学：${allData.基本信息.所在小学 || '未填写'}
+
+【能力特点】
+• 学业成绩：${allData.能力评估.学业成绩}分
+• 综合素养：${allData.能力评估.综合素养}分
+• 学习习惯：${allData.能力评估.学习习惯}分
+• 心理素质：${allData.能力评估.心理素质}分
+• 家庭支持：${allData.能力评估.家庭支持}分
+• 学科倾向：${allData.能力评估.学科倾向}分
+
+【户籍学区】
+• 户籍所在区：${allData.户籍居住.户籍所在区 || '未选择'}
+• 实际居住区：${allData.户籍居住.实际居住区 || '未选择'}
+• 居住性质：${allData.户籍居住.居住性质 || '未选择'}
+• 学区房：${getHouseText(allData.学区房产.学区房情况)}
+
+【家庭意向】
+• 是否考虑民办：${getConsiderPrivateText(allData.家庭意向.是否考虑民办)}
+• 三年预算：${getBudgetText(allData.家庭意向.三年预算)}
+• 孩子特长：${allData.家庭意向.孩子特长.join('、') || '未选择'}
+
+请基于以上完整信息，严格按照2025年西安小升初政策回答：
+1. 公办学校推荐必须遵循户籍学区原则
+2. 民办学校推荐考虑家庭预算和意向
+3. 提供2025年最新时间节点
+4. 如果信息不足，请明确说明需要补充什么`;
+
+        // 调用AI（使用现有配置）
+        const aiResponse = await callAIAPI(
+            prompt,
+            CONFIG.provider,
+            CONFIG.apiKey,
+            CONFIG.appId
+        );
+        
+        // 移除"思考中"
+        thinkingDiv.remove();
+        
+        // 显示AI回答
+        addAIMessage(aiResponse);
+        
+        // 保存记录
+        userAllData.AI分析记录.push({
+            时间: new Date().toLocaleString('zh-CN'),
+            问题: userInput,
+            回答: aiResponse.substring(0, 200) + '...'
+        });
+        
+    } catch (error) {
+        console.error('错误:', error);
+        thinkingDiv.remove();
+        
+        // 本地备用回答
+        const localAnswer = getLocalAnswer(userInput);
+        addAIMessage(localAnswer);
+    }
+}
+
+// 辅助函数
+function getHouseText(value) {
+    const map = {
+        'yes-good': '有学区房（对口优质公办）',
+        'yes-normal': '有学区房（对口一般公办）',
+        'no': '无学区房',
+        'rent': '租房居住'
+    };
+    return map[value] || '未选择';
+}
+
+function getConsiderPrivateText(value) {
+    const map = {
+        'yes': '是，愿意参加摇号',
+        'cautious': '观望中，看情况决定',
+        'no': '否，只考虑公办'
+    };
+    return map[value] || '未选择';
+}
+
+function getBudgetText(value) {
+    const map = {
+        'low': '3万以内（公办为主）',
+        'medium': '3-10万（可考虑民办）',
+        'high': '10万以上（民办无压力）'
+    };
+    return map[value] || '未选择';
+}
+
+function getCompletedStepsCount() {
+    let count = 0;
+    const data = userAllData;
+    
+    if (data.基本信息.当前年级) count++;
+    if (data.能力评估.学业成绩 !== '未评估') count++;
+    if (data.户籍居住.户籍所在区) count++;
+    if (data.学区房产.学区房情况) count++;
+    if (data.家庭意向.是否考虑民办) count++;
+    
+    return count;
+}
+
+// 本地备用回答库
+function getLocalAnswer(question) {
+    const q = question.toLowerCase();
+    
+    if (q.includes('时间') || q.includes('什么时候') || q.includes('报名')) {
+        return `📅 **2025年西安小升初时间安排**：
+• **报名时间**：2025年7月11日-7月24日
+• **摇号时间**：2025年7月30日
+• **结果确认**：2025年8月1日-8月5日
+• **开学时间**：2025年9月1日
+
+💡 **提醒**：请务必在规定时间内完成报名！`;
+    }
+    
+    if (q.includes('摇号') || q.includes('电脑随机')) {
+        return `🎲 **2025年民办学校摇号政策**：
+1. **摇号条件**：报名人数超过招生计划的民办学校
+2. **摇号时间**：2025年7月30日统一进行
+3. **招生计划**：全市28所民办初中，计划招生12361人
+4. **志愿填报**：可填报1-3所民办学校
+5. **录取规则**：摇号录取，结果当场公布
+
+🏫 **热门民办学校往年摇号率**：
+• 高新一中初中校区：约15%
+• 铁一中分校：约18%
+• 交大附中分校：约20%
+
+建议合理填报志愿，增加录取机会！`;
+    }
+    
+    if (q.includes('公办') || q.includes('学区')) {
+        const district = userAllData.户籍居住.户籍所在区;
+        
+        if (district) {
+            return `🏫 **关于${district}公办学校入学**：
+
+根据2025年西安政策：
+1. **入学原则**：免试就近，按户籍学区入学
+2. **入学顺位**：
+   • 第一顺位：房户一致，且在学区内居住
+   • 第二顺位：房户一致，但跨学区居住
+   • 第三顺位：集体户/挂靠户
+   • 第四顺位：租房居住，统筹安排
+
+3. **您的户籍情况**：${district}
+4. **建议**：携带户口本、房产证到${district}教育局查询具体对口学校
+
+📞 ${district}教育局联系电话需查询官网获取。`;
+        } else {
+            return `🏫 **公办学校入学原则**：
+
+要了解具体能上哪所公办学校，我需要知道：
+1. 您的户籍在哪个区？
+2. 是否有学区房？
+3. 户籍地址和房产证地址是否一致？
+
+请先填写第三步"户籍与居住信息"，我才能给出准确建议。`;
+        }
+    }
+    
+    if (q.includes('民办学校') || q.includes('有哪些')) {
+        return `🏫 **2025年西安民办初中（28所）**：
+
+**热门民办学校**：
+1. 西安高新一中初中校区（高新区）
+2. 西安铁一中分校（碑林区）
+3. 西安交大附中分校（雁塔区）
+4. 西工大附中分校（碑林区）
+5. 陕西师大附中分校（雁塔区）
+6. 西安爱知中学（新城区）
+7. 西安益新中学（莲湖区）
+8. 西安行知中学（新城区）
+9. 西安尊德中学（碑林区）
+10. 西安汇知中学（新城区）
+
+**2025年招生**：总计划12361人
+**学费范围**：8000-15000元/学期
+
+💡 **选择建议**：
+• 根据家庭预算选择
+• 考虑学校特色和学生兴趣
+• 合理填报志愿（1冲刺+1稳妥+1保底）`;
+    }
+    
+    // 默认回答
+    return `🐱 **小喵升学助手**回答：
+
+我理解您的问题。为了更好地帮助您，请：
+
+📋 **完善以下信息**：
+1. 学生当前年级（第一步）
+2. 能力评估结果（第二步）
+3. 户籍所在区（第三步）
+4. 学区房情况（第四步）
+5. 是否考虑民办（第五步）
+
+或者直接问我：
+• "2025年报名时间是什么时候？"
+• "民办学校摇号怎么进行？"
+• "我家在XX区，能上什么学校？"
+
+我已经记住了您填写的信息，可以基于这些信息给出更精准的建议！`;
+}
+
+// 添加消息到聊天窗口
+function addUserMessage(text) {
+    const chatBody = document.getElementById('chatBody');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'ai-message user';
+    messageDiv.innerHTML = `
+        <div class="message-content">
+            <div class="message-text">${text}</div>
+            <div class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+        </div>
+        <div class="message-avatar">👤</div>
+    `;
+    chatBody.appendChild(messageDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function addAIMessage(text) {
+    const chatBody = document.getElementById('chatBody');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'ai-message assistant';
+    messageDiv.innerHTML = `
+        <div class="message-avatar">🐱</div>
+        <div class="message-content">
+            <div class="message-text">${formatResponse(text)}</div>
+            <div class="message-time">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+            <div class="source-info">
+                <span class="trust-badge trust-ai">AI分析</span>
+                基于用户${getCompletedStepsCount()}项信息 • ${new Date().toLocaleDateString('zh-CN')}
+            </div>
+        </div>
+    `;
+    chatBody.appendChild(messageDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function formatResponse(text) {
+    return text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+               .replace(/\n/g, '<br>');
+}
+
+// ==================== PDF导出功能（简化可用版）====================
+function exportReportPDF() {
+    try {
+        // 显示加载
+        const loading = document.createElement('div');
+        loading.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;display:flex;justify-content:center;align-items:center;color:white;font-size:18px;';
+        loading.innerHTML = '<div style="text-align:center;"><div style="width:50px;height:50px;border:5px solid #f3f3f3;border-top:5px solid #3498db;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 20px;"></div>正在生成PDF报告...</div>';
+        document.body.appendChild(loading);
+        
+        setTimeout(() => {
+            try {
+                // 收集数据
+                const data = collectAllData();
+                
+                // 创建PDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // 标题
+                doc.setFontSize(22);
+                doc.setTextColor(33, 150, 243);
+                doc.text('西安小升初智能评估报告', 105, 20, { align: 'center' });
+                
+                doc.setFontSize(12);
+                doc.setTextColor(100, 100, 100);
+                doc.text('2025增强版 | 基于AI分析', 105, 28, { align: 'center' });
+                
+                doc.setDrawColor(200, 200, 200);
+                doc.line(20, 35, 190, 35);
+                
+                let y = 45;
+                
+                // 1. 学生信息
+                doc.setFontSize(16);
+                doc.setTextColor(0, 0, 0);
+                doc.text('一、学生基本信息', 20, y);
+                y += 10;
+                
+                const studentInfo = [
+                    ['学生姓名', data.基本信息.学生姓名 || '未填写'],
+                    ['当前年级', data.基本信息.当前年级 || '未选择'],
+                    ['户籍所在区', data.户籍居住.户籍所在区 || '未选择'],
+                    ['学区房情况', getHouseText(data.学区房产.学区房情况)],
+                    ['是否考虑民办', getConsiderPrivateText(data.家庭意向.是否考虑民办)],
+                    ['三年预算', getBudgetText(data.家庭意向.三年预算)]
+                ];
+                
+                // 使用表格
+                if (typeof doc.autoTable === 'function') {
+                    doc.autoTable({
+                        startY: y,
+                        head: [['项目', '内容']],
+                        body: studentInfo,
+                        theme: 'grid',
+                        headStyles: { fillColor: [33, 150, 243] }
+                    });
+                    y = doc.lastAutoTable.finalY + 15;
+                } else {
+                    // 普通文本
+                    doc.setFontSize(12);
+                    studentInfo.forEach(([label, value]) => {
+                        doc.text(`${label}：${value}`, 25, y);
+                        y += 8;
+                    });
+                    y += 10;
+                }
+                
+                // 2. 能力评估
+                doc.addPage();
+                y = 20;
+                
+                doc.setFontSize(16);
+                doc.text('二、能力评估结果', 20, y);
+                y += 10;
+                
+                const abilities = [
+                    ['学业成绩', data.能力评估.学业成绩],
+                    ['综合素养', data.能力评估.综合素养],
+                    ['学习习惯', data.能力评估.学习习惯],
+                    ['心理素质', data.能力评估.心理素质],
+                    ['家庭支持', data.能力评估.家庭支持],
+                    ['学科倾向', data.能力评估.学科倾向]
+                ];
+                
+                if (typeof doc.autoTable === 'function') {
+                    const abilityTable = abilities.map(([name, score]) => {
+                        const s = score === '未评估' ? '未评估' : `${score}分`;
+                        let level = '未评估';
+                        if (score >= 4) level = '优秀';
+                        else if (score >= 3) level = '良好';
+                        else if (score >= 1) level = '需提升';
+                        return [name, s, level];
+                    });
+                    
+                    doc.autoTable({
+                        startY: y,
+                        head: [['能力维度', '评分', '评价']],
+                        body: abilityTable,
+                        theme: 'grid',
+                        headStyles: { fillColor: [76, 175, 80] }
+                    });
+                    y = doc.lastAutoTable.finalY + 15;
+                }
+                
+                // 3. 政策提醒
+                doc.setFontSize(16);
+                doc.setTextColor(211, 47, 47);
+                doc.text('三、2025年重要政策提醒', 20, y);
+                y += 10;
+                
+                doc.setFontSize(12);
+                doc.setTextColor(0, 0, 0);
+                const policies = [
+                    '📅 报名时间：2025年7月11日-24日',
+                    '🎲 摇号时间：2025年7月30日',
+                    '📍 入学原则：免试就近，房户一致优先',
+                    '🏫 民办学校：28所，计划招生12361人',
+                    '🌐 统一平台：陕西"教育入学一件事"',
+                    '🎯 西咸新区：纳入城六区统一招生'
+                ];
+                
+                policies.forEach(policy => {
+                    doc.text(policy, 25, y);
+                    y += 8;
+                });
+                
+                // 页脚
+                const pages = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pages; i++) {
+                    doc.setPage(i);
+                    doc.setFontSize(10);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text('西安小升初智能评估系统 - 专业升学规划', 105, 290, { align: 'center' });
+                }
+                
+                // 保存
+                const fileName = `小升初评估_${data.基本信息.学生姓名 || '学生'}_${new Date().getTime()}.pdf`;
+                doc.save(fileName);
+                
+                loading.remove();
+                alert('✅ PDF报告生成成功！文件已保存。');
+                
+            } catch (error) {
+                loading.remove();
+                alert('❌ PDF生成失败：' + error.message + '\n请使用打印功能。');
+            }
+        }, 1000);
+        
+    } catch (error) {
+        alert('系统错误：' + error.message);
+    }
+}
+
+// 如果上面的太复杂，用这个超级简化版
+function exportReportPDFSimple() {
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // 最简单的内容
+        doc.setFontSize(20);
+        doc.text('西安小升初评估报告', 20, 20);
+        
+        doc.setFontSize(12);
+        doc.text('生成时间：' + new Date().toLocaleString(), 20, 40);
+        
+        const name = document.getElementById('studentName')?.value || '未填写';
+        const grade = document.querySelector('input[name="currentGrade"]:checked')?.value || '未选择';
+        
+        doc.text('学生姓名：' + name, 20, 60);
+        doc.text('当前年级：' + grade, 20, 70);
+        
+        // 2025政策
+        doc.setFontSize(14);
+        doc.text('2025年重要政策：', 20, 90);
+        doc.setFontSize(12);
+        doc.text('• 报名：7月11-24日', 25, 100);
+        doc.text('• 摇号：7月30日', 25, 110);
+        doc.text('• 免试就近入学', 25, 120);
+        doc.text('• 民办学校：28所', 25, 130);
+        
+        doc.save('小升初报告.pdf');
+        alert('PDF生成成功！');
+        
+    } catch (error) {
+        alert('PDF导出失败！请使用打印功能。');
+    }
+}
+
+// 初始化：加载保存的数据
+window.addEventListener('load', function() {
+    const savedData = localStorage.getItem('xiaoshengchu_user_data');
+    if (savedData) {
+        try {
+            userAllData = JSON.parse(savedData);
+            console.log('已加载用户数据：', userAllData);
+        } catch (e) {
+            console.log('加载数据失败，使用新数据');
+        }
+    }
+});
+
+// 覆盖原有的sendMessage函数
+window.sendMessage = sendMessage;
+// 覆盖原有的exportReportPDF函数
+window.exportReportPDF = exportReportPDF;
+
+// 在原有的全局函数声明后面添加
+window.collectAllData = collectAllData;
+window.exportReportPDFSimple = exportReportPDFSimple;
+
+</script>
