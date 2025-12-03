@@ -7,6 +7,193 @@
     <!-- 外部CSS和字体 -->
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 聊天窗口样式修复 -->
+    <style>
+        /* ========== 修复聊天窗口样式 ========== */
+
+        /* 聊天窗口可调整大小 */
+        .ai-chat-window {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 400px;
+            max-width: 90vw;
+            height: 600px;
+            max-height: 80vh;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+            /* 允许调整大小 */
+            resize: both;
+            overflow: hidden;
+            min-width: 320px;
+            min-height: 400px;
+        }
+
+        .ai-chat-window.active {
+            display: flex;
+        }
+
+        /* 聊天输入框 - 支持多行输入 */
+        .chat-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical; /* 允许垂直调整大小 */
+            min-height: 42px;
+            max-height: 120px;
+            line-height: 1.5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow-y: auto; /* 内容超出时显示滚动条 */
+            word-wrap: break-word;
+            white-space: pre-wrap; /* 保留换行和空格 */
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* 输入框容器 */
+        .chat-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end; /* 按钮与输入框底部对齐 */
+            padding: 12px 15px;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        /* 发送按钮 */
+        .send-btn {
+            flex-shrink: 0;
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 聊天消息内容自动换行 */
+        .message-content {
+            background: #f0f9ff;
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 80%;
+            word-wrap: break-word;
+            word-break: break-word;
+            white-space: pre-wrap; /* 保留换行 */
+            line-height: 1.6;
+            overflow-wrap: break-word;
+        }
+
+        .ai-message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+        }
+
+        /* 聊天窗口主体自动滚动 */
+        .ai-chat-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #ffffff;
+        }
+
+        /* 快捷操作按钮 */
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            padding: 0 15px 12px 15px;
+            flex-wrap: wrap;
+            background: #f8fafc;
+        }
+
+        .quick-action-btn {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .quick-action-btn:hover {
+            background: #f0f9ff;
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .ai-chat-window {
+                width: 100%;
+                height: 100%;
+                max-width: 100%;
+                max-height: 100%;
+                bottom: 0;
+                right: 0;
+                border-radius: 0;
+                resize: none; /* 移动端禁用调整大小 */
+            }
+            
+            .chat-input {
+                font-size: 16px; /* 防止iOS自动缩放 */
+            }
+        }
+
+        /* 滚动条美化 */
+        .ai-chat-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .ai-chat-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .ai-chat-body::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 10px;
+        }
+
+        .ai-chat-body::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+
+        .chat-input::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .chat-input::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 10px;
+        }
+    </style>
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- PDF导出库 -->
@@ -104,10 +291,20 @@
                         </div>
                     </div>
                 </div>
+                <!-- 替换为修复后的聊天输入部分 -->
                 <div class="ai-chat-input">
                     <div class="chat-input-group">
-                        <input type="text" class="chat-input" id="chatInput" placeholder="输入问题..." onkeypress="handleKeyPress(event)">
-                        <button class="send-btn" id="sendBtn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+                        <!-- 将input改为textarea支持多行输入 -->
+                        <textarea 
+                            class="chat-input" 
+                            id="chatInput" 
+                            placeholder="输入问题...&#10;Shift+Enter换行,Enter发送"
+                            rows="1"
+                            onkeydown="handleChatKeyPress(event)"
+                        ></textarea>
+                        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
                     </div>
                     <div class="quick-actions">
                         <button class="quick-action-btn" onclick="quickAction('2026年小升初时间安排')">时间安排</button>
@@ -601,5 +798,94 @@
 
     <!-- 外部JS -->
     <script src="script.js"></script>
+    
+    <!-- 新增的聊天相关JavaScript代码 -->
+    <script>
+    // 添加新的键盘事件处理函数
+    function handleChatKeyPress(event) {
+        const textarea = event.target;
+        
+        // Enter发送,Shift+Enter换行
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault(); // 阻止默认的换行行为
+            sendMessage();
+        }
+        
+        // 自动调整textarea高度
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+
+    // 在sendMessage函数中重置textarea高度
+    function sendMessage() {
+        const chatInput = document.getElementById('chatInput');
+        const message = chatInput.value.trim();
+        if (!message) return;
+        
+        if (!CONFIG.isConnected) {
+            alert('AI聊天功能在本地模式下不可用。请切换到在线模式。');
+            return;
+        }
+        
+        // 显示用户消息
+        addMessageToChat('user', message);
+        chatInput.value = '';
+        
+        // 重置textarea高度
+        chatInput.style.height = 'auto';
+        
+        // 发送请求
+        sendAIRequest(message);
+    }
+
+    // 优化的AI请求函数
+    async function sendAIRequest(message) {
+        try {
+            showLoadingIndicator();
+            
+            // 收集用户评估数据一起发给AI
+            const userData = collectUserDataForAI();
+            
+            // 构建包含用户信息的完整提示词
+            const contextPrompt = `
+【用户已填写信息】:
+- 学生年级: ${userData.当前年级 || '未填写'}
+- 能力评估: ${JSON.stringify(userData.能力评估)}
+- 户籍所在区: ${userData.户籍所在区 || '未填写'}
+- 实际居住区: ${userData.实际居住区 || '未填写'}
+- 房产情况: ${userData.房产情况 || '未填写'}
+- 民办意向: ${userData.民办意向 || '未填写'}
+- 预算范围: ${userData.预算范围 || '未填写'}
+- 学生特长: ${userData.学生特长.join('、') || '无'}
+
+【用户问题】:
+${message}
+
+请基于上述真实情况回答,避免泛化回答,必须结合孩子个性化数据进行分析。回答要简洁明了,控制在150字以内。
+            `;
+            
+            // 调用AI
+            const response = await callAIAPI(
+                contextPrompt,
+                CONFIG.provider,
+                CONFIG.apiKey,
+                CONFIG.appId
+            );
+            
+            hideLoadingIndicator();
+            
+            // 显示AI回复
+            addMessageToChat('assistant', response);
+            
+        } catch (error) {
+            hideLoadingIndicator();
+            addMessageToChat('assistant', `抱歉,出现错误:${error.message}`);
+        }
+    }
+
+    // 导出到全局
+    window.handleChatKeyPress = handleChatKeyPress;
+    window.sendAIRequest = sendAIRequest;
+    </script>
 </body>
 </html>
