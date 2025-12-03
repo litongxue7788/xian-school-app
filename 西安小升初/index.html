@@ -9,6 +9,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PDF导出库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <!-- Local Data -->
     <script src="data/faq.js"></script>
     <script src="data/schools.js"></script>
@@ -64,6 +67,13 @@
         
         <h1>🎓 西安小升初智能评估系统 <span class="ai-badge">2025增强版</span></h1>
         <p class="subtitle">基于权威知识 · 实时更新 · 多重验证 · 深度个性化</p>
+        
+        <!-- PDF导出按钮 -->
+        <div style="margin: 20px 0; text-align: center;">
+            <button id="exportFullPdfBtn" class="btn btn-primary" style="margin: 10px;">
+                <i class="fas fa-file-pdf"></i> 📄 导出完整版升学报告 PDF
+            </button>
+        </div>
         
         <!-- AI助手 -->
         <div class="ai-assistant">
@@ -393,7 +403,7 @@
             
             <div class="button-group">
                 <button class="btn btn-secondary" onclick="goToStep2()">← 上一步</button>
-                <button class="btn btn-primary" onclick="validateStep3() && goToStep4()">下一步：学区房产信息 →</button>
+                <button class="btn btn-primary" onclick="if(validateStep3()) goToStep4()">下一步：学区房产信息 →</button>
             </div>
         </div>
 
@@ -575,9 +585,12 @@
                 <button class="btn btn-secondary" onclick="goToStep6()">← 返回修改</button>
                 <button class="btn btn-primary" onclick="printOptimizedReport()">
                     <i class="fas fa-print"></i> 打印专业报告
-                <button>
+                </button>
                 <button class="btn btn-secondary" onclick="exportReportPDF()">
                     <i class="fas fa-file-pdf"></i> 导出PDF
+                </button>
+                <button class="btn btn-secondary" onclick="exportReportJSON()">
+                    <i class="fas fa-file-code"></i> 导出JSON
                 </button>
                 <button class="btn btn-secondary" onclick="resetAll()">
                     <i class="fas fa-redo"></i> 重新评估
@@ -587,10 +600,6 @@
     </div>
 
     <!-- 外部JS -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pinyin-pro/dist/pinyin-pro.umd.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
