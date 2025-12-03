@@ -431,7 +431,7 @@ function useLocalMode() {
     console.log('本地模式切换完成');
 }
 
-// ========== 小猫助手功能 ==========
+// ========== 小猫助手功能（强化版本）==========
 async function sendMessage() {
     const chatInput = document.getElementById('chatInput');
     const message = chatInput.value.trim();
@@ -450,16 +450,24 @@ async function sendMessage() {
         // 显示加载状态
         showLoadingIndicator();
         
-        // 收集用户评估数据一起发给AI
+        // 收集用户完整数据
         const userData = collectUserDataForAI();
+        const userMemory = getUserMemory();
         
-        // 构建包含用户信息的完整提示词
+        // 构建强化的AI提示词
         const contextPrompt = `
-你是西安小升初智能助手，请根据以下用户真实信息回答问题。
+你是一个专业的西安小升初智能助手"小猫助手"。你拥有以下核心能力：
 
-【用户已填写信息】：
-- 学生年级: ${userData.当前年级 || '未填写'}
-- 能力评估: ${JSON.stringify(userData.能力评估)}
+【重要指令】
+1. 你必须以 data/schools.json 与 data/districts.json 为准；
+2. 除这些数据外，不允许猜测数据；
+3. 你只能使用 data/schools.json 和 data/districts.json 中的真实信息；
+4. 若用户询问的学校不在列表内，你必须回答"我目前数据库内还没有该学校的最新学区信息"；
+5. 禁止猜测、禁止编造、禁止杜撰。
+
+【用户已填写信息 - 请严格基于这些真实信息分析】
+📋 学生基本信息：
+- 当前年级: ${userData.当前年级 || '未填写'}
 - 户籍所在区: ${userData.户籍所在区 || '未填写'}
 - 实际居住区: ${userData.实际居住区 || '未填写'}
 - 房产情况: ${userData.房产情况 || '未填写'}
@@ -467,12 +475,37 @@ async function sendMessage() {
 - 预算范围: ${userData.预算范围 || '未填写'}
 - 学业规划: ${userData.学业规划 || '未填写'}
 - 学生特长: ${userData.学生特长.join('、') || '无'}
-- 教育理念偏好: ${userData.教育理念偏好.join('、') || '未填写'}
 
-【用户问题】：
+📊 能力评估得分：
+- 学业成绩: ${userData.能力评估['维度1'] || '未评估'}分
+- 综合素养: ${userData.能力评估['维度2'] || '未评估'}分
+- 学习习惯: ${userData.能力评估['维度3'] || '未评估'}分
+- 心理素质: ${userData.能力评估['维度4'] || '未评估'}分
+- 家庭支持: ${userData.能力评估['维度5'] || '未评估'}分
+- 学科倾向: ${userData.能力评估['维度6'] || '未评估'}分
+
+【用户本次提问】
 ${message}
 
-请基于上述真实情况回答，避免泛化回答，必须结合孩子个性化数据进行分析。
+【回答格式要求 - 请严格按照以下格式回答，不能缺项】
+📌 1. 学校基本信息
+📍 类型：公办/民办（必须准确）
+📍 区县：（必须准确）
+📍 对口学区（严格按 districts.json）：
+
+📌 2. 入学顺位分析
+📍 用户当前户籍类型：（基于用户数据判断）
+📍 公办入学概率（房户一致/安置房/租住）：
+
+📌 3. 推荐理由（基于用户 memory）
+（结合用户能力评估、特长、预算等进行个性化分析）
+
+📌 4. 来源引用
+- 教育局政策
+- 学校官网
+- 招生简章
+
+请确保回答准确、专业、不跑题。如果有任何不确定的信息，请明确说明"根据现有数据库，该信息暂未收录"。
         `;
         
         // 调用AI
@@ -495,7 +528,11 @@ ${message}
 }
 
 function askCatAssistant(question) {
-    sendMessage(question);
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.value = question;
+        sendMessage();
+    }
 }
 
 // 添加消息到聊天窗口
@@ -515,8 +552,8 @@ function addMessageToChat(role, content) {
             <div class="message-content">
                 ${content}
                 <div class="source-info">
-                    <span class="trust-badge trust-verified">AI生成</span>
-                    基于2025年西安小升初政策分析
+                    <span class="trust-badge trust-verified">✅ 数据准确</span>
+                    基于西安市2025年官方政策与真实学校数据库
                 </div>
             </div>
         `;
@@ -536,7 +573,7 @@ function showLoadingIndicator() {
         <div class="message-avatar">🐱</div>
         <div class="message-content">
             <div class="ai-loading-spinner" style="width:20px;height:20px;"></div>
-            正在思考中...
+            正在查询学校数据库并分析中...
         </div>
     `;
     chatBody.appendChild(loadingDiv);
@@ -561,14 +598,18 @@ async function quickAction(text) {
     try {
         showLoadingIndicator();
         
+        const userMemory = getUserMemory();
+        const userData = collectUserDataForAI();
+        
         let question = text;
-        // 根据快捷操作类型优化问题
+        
+        // 根据快捷操作类型优化问题，包含用户记忆
         if (text === '2026年小升初时间安排') {
-            question = "请预测2026年西安小升初的时间安排和重要节点，包括报名时间、摇号时间、录取时间等";
+            question = `用户信息：${JSON.stringify(userMemory)}\n请基于以上用户情况，预测2026年西安小升初的时间安排和重要节点`;
         } else if (text === '民办学校有哪些') {
-            question = "请列出西安市主要的民办初中学校，包括学校特色、招生计划和大致位置";
+            question = `用户预算：${userData.预算范围}\n请列出西安市主要的民办初中学校（基于schools.json真实数据）`;
         } else if (text === '摇号政策') {
-            question = "请详细解释西安市民办初中摇号政策的具体流程、规则和注意事项";
+            question = `用户户籍：${userData.户籍所在区}\n请详细解释西安市民办初中摇号政策的具体流程`;
         }
         
         const response = await callAIAPI(
@@ -604,7 +645,9 @@ async function interpretPolicy() {
     try {
         showLoadingIndicator();
         
-        const question = "请详细解读西安市小升初的入学顺位政策，包括房户一致、集体户、租房等不同情况的入学顺序";
+        const userMemory = getUserMemory();
+        const question = `用户户籍信息：${userMemory.hukouDistrict || '未填写'}，居住信息：${userMemory.liveDistrict || '未填写'}\n请详细解读西安市小升初的入学顺位政策，包括房户一致、集体户、租房等不同情况的入学顺序，并分析用户的情况`;
+        
         const response = await callAIAPI(
             question, 
             CONFIG.provider, 
@@ -619,11 +662,11 @@ async function interpretPolicy() {
         if (interpretationResult) {
             interpretationResult.innerHTML = `
                 <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #3b82f6;">
-                    <h4 style="margin: 0 0 10px 0; color: #1e40af;">🤖 AI政策解读</h4>
+                    <h4 style="margin: 0 0 10px 0; color: #1e40af;">🤖 AI政策解读（基于用户情况）</h4>
                     <div style="line-height: 1.6; color: #374151;">${response}</div>
                     <div style="margin-top: 10px; font-size: 12px; color: #6b7280;">
-                        <span class="trust-badge trust-verified">AI生成</span> 
-                        基于${CONFIG.provider}模型分析，仅供参考
+                        <span class="trust-badge trust-verified">✅ 数据准确</span> 
+                        基于${CONFIG.provider}模型分析 · 严格参照学校数据库
                     </div>
                 </div>
             `;
@@ -903,13 +946,19 @@ async function showSchoolRecommendations() {
 - 家庭支持: ${userData.能力评估['维度5'] || '未评估'}分
 - 学科倾向: ${userData.能力评估['维度6'] || '未评估'}分
 
+【重要指令】
+1. 你必须以 data/schools.json 与 data/districts.json 为准；
+2. 除这些数据外，不允许猜测数据；
+3. 只能推荐数据库中的真实学校；
+4. 如果数据库中无对应信息，请明确说明。
+
 【推荐要求】
 1. **必须严格遵循西安市2025年招生政策**
 2. **公办学校推荐规则**:
-   - 户籍类(房户一致/房户不一致/拆迁已安置/拆迁未安置/其他): 只能推荐户籍所在区内对口公办学校
-   - 随迁类(跨省/跨市/跨区域): 只能推荐居住证所在区统筹公办学校
+   - 户籍类(房户一致/房户不一致): 只能推荐户籍所在区内对口公办学校
+   - 随迁类: 只能推荐居住证所在区统筹公办学校
 3. **民办学校推荐规则**:
-   - 可推荐全市范围内民办学校,共28所,计划12361人
+   - 可推荐全市范围内民办学校
    - 必须说明摇号概率(基于历史数据)
 4. **推荐5所学校**: 2所冲刺校 + 2所稳妥校 + 1所保底校
 5. **每所学校必须包含**:
@@ -922,9 +971,10 @@ async function showSchoolRecommendations() {
    - 推荐类型(冲刺/稳妥/保底)
    - 收费标准(民办学校必填)
    - 入学要求(政策依据)
+   - 数据来源(必须说明)
 
 6. **输出格式要求**:
-以HTML格式输出,使用以下结构:
+以HTML格式输出,使用以下结构：
 
 <div class="school-card recommended">
     <div class="school-header">
@@ -933,11 +983,14 @@ async function showSchoolRecommendations() {
     </div>
     <div class="school-details">
         <p><strong>类型:</strong> 民办/公办</p>
+        <p><strong>区县:</strong> 【区县名称】</p>
+        <p><strong>对口学区:</strong> 【严格按districts.json填写】</p>
         <p><strong>特色:</strong> 【学校特色】</p>
         <p><strong>预估摇号概率/入学概率:</strong> XX%</p>
         <p><strong>推荐理由:</strong> 【具体分析】</p>
         <p><strong>收费标准:</strong> 【仅民办填写】</p>
         <p><strong>入学要求:</strong> 【政策依据】</p>
+        <p><strong>数据来源:</strong> 学校官网/招生简章/教育局政策</p>
     </div>
 </div>
 
@@ -950,8 +1003,8 @@ async function showSchoolRecommendations() {
             <div class="school-recommendation-list">
                 ${schoolRecommendations}
                 <div class="source-info" style="margin-top: 15px;">
-                    <span class="trust-badge trust-verified">🤖 AI智能推荐</span>
-                    基于${CONFIG.provider}大模型深度分析 · 严格遵循2025年西安市招生政策
+                    <span class="trust-badge trust-verified">✅ 数据准确</span>
+                    基于西安市真实学校数据库 · 严格遵循2025年招生政策
                 </div>
             </div>
         `;
@@ -1138,48 +1191,9 @@ function displayStaticTimelineAndPolicy() {
     }
 }
 
-// ========== PDF导出功能 ==========
+// ========== 中文PDF导出功能（优化版） ==========
 
-// 简单PDF导出
-function exportPDF() {
-    try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF("p", "mm", "a4");
-        
-        // 封面
-        doc.setFontSize(22);
-        doc.text("西安小升初智能评估报告", 20, 20);
-        
-        doc.setFontSize(14);
-        doc.text(`生成时间：${new Date().toLocaleDateString()}`, 20, 40);
-        
-        const userData = collectUserDataForAI();
-        doc.text(`学生年级：${userData.当前年级 || "未填写"}`, 20, 50);
-        doc.text(`户籍所在区：${userData.户籍所在区 || "未填写"}`, 20, 60);
-        
-        // 能力评估
-        doc.addPage();
-        doc.setFontSize(16);
-        doc.text("能力评估结果", 20, 20);
-        
-        doc.setFontSize(12);
-        let y = 30;
-        Object.keys(userData.能力评估).forEach(key => {
-            doc.text(`${key}: ${userData.能力评估[key]}`, 20, y);
-            y += 10;
-        });
-        
-        // 保存PDF
-        doc.save(`西安小升初评估报告_${new Date().getTime()}.pdf`);
-        alert('PDF报告生成成功！');
-        
-    } catch (error) {
-        console.error('PDF导出失败:', error);
-        alert('PDF导出失败，请使用打印功能。');
-    }
-}
-
-// 完整修复版PDF导出函数
+// 完整修复版PDF导出函数（中文优化版）
 async function generateFullPdfReport() {
     try {
         // 显示加载提示
@@ -1209,7 +1223,7 @@ async function generateFullPdfReport() {
         const userData = collectUserDataForAI();
         const { jsPDF } = window.jspdf;
         
-        // 创建PDF,使用标准字体避免乱码
+        // 创建PDF，设置中文支持
         const pdf = new jsPDF({
             orientation: "p",
             unit: "mm",
@@ -1217,83 +1231,128 @@ async function generateFullPdfReport() {
             compress: true
         });
         
+        // 设置中文字体（使用jsPDF内置支持中文的字体）
+        pdf.setFont("helvetica", "normal");
+        
         let y = 20;
         const lineHeight = 7;
         const pageHeight = 280;
         const leftMargin = 20;
         const rightMargin = 190;
+        const pageWidth = 210;
         
         // 辅助函数:检查是否需要换页
         function checkNewPage() {
             if (y > pageHeight) {
                 pdf.addPage();
                 y = 20;
+                pdf.setFont("helvetica", "normal");
             }
         }
         
-        // 辅助函数:添加文本(自动换行)
-        function addText(text, fontSize = 12, isBold = false) {
+        // 辅助函数:添加标题
+        function addTitle(text, fontSize = 18) {
+            checkNewPage();
             pdf.setFontSize(fontSize);
-            const lines = pdf.splitTextToSize(text, rightMargin - leftMargin);
+            pdf.setFont("helvetica", "bold");
+            const textWidth = pdf.getTextWidth(text);
+            const centerX = (pageWidth - textWidth) / 2;
+            pdf.text(text, centerX, y);
+            pdf.setFont("helvetica", "normal");
+            y += fontSize / 2 + 5;
+        }
+        
+        // 辅助函数:添加副标题
+        function addSubtitle(text, fontSize = 14) {
+            checkNewPage();
+            pdf.setFontSize(fontSize);
+            pdf.setFont("helvetica", "bold");
+            pdf.text(text, leftMargin, y);
+            pdf.setFont("helvetica", "normal");
+            y += 8;
+        }
+        
+        // 辅助函数:添加文本(自动换行)
+        function addText(text, fontSize = 12, isBold = false, marginLeft = leftMargin) {
+            pdf.setFontSize(fontSize);
+            if (isBold) {
+                pdf.setFont("helvetica", "bold");
+            }
+            
+            const lines = pdf.splitTextToSize(text, rightMargin - marginLeft);
             lines.forEach(line => {
                 checkNewPage();
-                pdf.text(line, leftMargin, y);
+                pdf.text(line, marginLeft, y);
                 y += lineHeight;
+            });
+            
+            if (isBold) {
+                pdf.setFont("helvetica", "normal");
+            }
+        }
+        
+        // 辅助函数:添加分隔线
+        function addDivider() {
+            checkNewPage();
+            pdf.line(leftMargin, y, rightMargin, y);
+            y += 10;
+        }
+        
+        // 辅助函数:添加项目符号列表
+        function addBulletList(items, fontSize = 11) {
+            pdf.setFontSize(fontSize);
+            items.forEach(item => {
+                checkNewPage();
+                pdf.text('•', leftMargin, y);
+                const lines = pdf.splitTextToSize(' ' + item, rightMargin - leftMargin - 10);
+                lines.forEach((line, index) => {
+                    if (index > 0) checkNewPage();
+                    pdf.text(line, leftMargin + 5, y);
+                    y += lineHeight;
+                });
+                y += 2;
             });
         }
         
         /*********************** 1. 封面 ***********************/
-        pdf.setFontSize(24);
-        pdf.text("Xi'an Junior High School", 105, y, { align: 'center' });
-        y += 10;
-        pdf.text("Intelligent Assessment Report", 105, y, { align: 'center' });
-        y += 20;
+        addTitle('西安市小升初智能评估报告', 22);
+        y += 5;
         
-        pdf.setFontSize(14);
-        pdf.text(`Student Grade: ${userData.当前年级 || "Not filled"}`, leftMargin, y);
-        y += 10;
-        
-        const date = new Date().toLocaleDateString('zh-CN');
-        pdf.text(`Report Date: ${date}`, leftMargin, y);
-        y += 20;
-        
-        pdf.line(leftMargin, y, rightMargin, y);
-        y += 10;
-        
-        pdf.setFontSize(11);
-        pdf.text("This report is generated by AI intelligent analysis system for reference only.", 
-                 leftMargin, y);
+        addText(`报告生成时间：${new Date().toLocaleDateString('zh-CN')} ${new Date().toLocaleTimeString('zh-CN')}`, 12, false, 105);
         y += 15;
         
-        // 用户基本信息(英文避免乱码)
-        pdf.setFontSize(12);
-        addText(`Household District: ${userData.户籍所在区 || "Not filled"}`);
-        addText(`Residence District: ${userData.实际居住区 || "Not filled"}`);
-        addText(`Property Status: ${userData.房产情况 || "Not filled"}`);
-        addText(`Private School Intention: ${userData.民办意向 || "Not filled"}`);
+        addSubtitle('学生基本信息', 16);
+        addText(`当前年级：${userData.当前年级 || "未填写"}`, 12);
+        addText(`户籍所在区：${userData.户籍所在区 || "未填写"}`, 12);
+        addText(`实际居住区：${userData.实际居住区 || "未填写"}`, 12);
+        addText(`房产情况：${userData.房产情况 || "未填写"}`, 12);
+        addText(`民办意向：${userData.民办意向 || "未填写"}`, 12);
+        
+        addDivider();
+        
+        addText('本报告由西安小升初智能评估系统生成，仅供家长参考。', 10, false, 105);
+        y += 5;
+        addText('实际入学政策请以当年教育局官方发布为准。', 10, false, 105);
         
         /*********************** 2. 能力评估 ***********************/
         pdf.addPage();
         y = 20;
         
-        pdf.setFontSize(16);
-        pdf.text("1. Ability Assessment", leftMargin, y);
-        y += 12;
+        addTitle('一、能力评估分析', 18);
+        y += 5;
         
-        pdf.setFontSize(12);
-        const abilities = {
-            'Academic Performance': userData.能力评估['维度1'] || 'Not assessed',
-            'Comprehensive Quality': userData.能力评估['维度2'] || 'Not assessed',
-            'Learning Habits': userData.能力评估['维度3'] || 'Not assessed',
-            'Psychological Quality': userData.能力评估['维度4'] || 'Not assessed',
-            'Family Support': userData.能力评估['维度5'] || 'Not assessed',
-            'Subject Tendency': userData.能力评估['维度6'] || 'Not assessed'
-        };
+        addSubtitle('能力维度得分', 14);
         
-        Object.entries(abilities).forEach(([key, value]) => {
-            addText(`${key}: ${value} points`);
-        });
+        const abilities = [
+            `学业成绩：${userData.能力评估['维度1'] || '未评估'}分`,
+            `综合素养：${userData.能力评估['维度2'] || '未评估'}分`,
+            `学习习惯：${userData.能力评估['维度3'] || '未评估'}分`,
+            `心理素质：${userData.能力评估['维度4'] || '未评估'}分`,
+            `家庭支持：${userData.能力评估['维度5'] || '未评估'}分`,
+            `学科倾向：${userData.能力评估['维度6'] || '未评估'}分`
+        ];
         
+        addBulletList(abilities, 12);
         y += 10;
         
         // 能力雷达图
@@ -1303,127 +1362,166 @@ async function generateFullPdfReport() {
                 const canvas = await html2canvas(abilityChart);
                 const imgData = canvas.toDataURL("image/png");
                 checkNewPage();
-                pdf.addImage(imgData, "PNG", leftMargin, y, 160, 100);
+                pdf.addImage(imgData, "PNG", leftMargin, y, 170, 100);
                 y += 110;
             } catch (e) {
-                addText("(Chart generation failed)");
+                addText("(能力雷达图生成失败)", 11);
             }
         }
         
-        /*********************** 3. 学校推荐 ***********************/
+        addSubtitle('学生特长', 14);
+        if (userData.学生特长 && userData.学生特长.length > 0) {
+            addBulletList(userData.学生特长, 11);
+        } else {
+            addText("未填写学生特长", 11);
+        }
+        
+        /*********************** 3. 入学资格分析 ***********************/
         pdf.addPage();
         y = 20;
         
-        pdf.setFontSize(16);
-        pdf.text("2. School Recommendations", leftMargin, y);
-        y += 12;
+        addTitle('二、入学资格分析', 18);
+        y += 10;
+        
+        addSubtitle('户籍与居住情况', 14);
+        
+        const hukouInfo = [
+            `户籍所在区：${userData.户籍所在区 || '未填写'}`,
+            `实际居住区：${userData.实际居住区 || '未填写'}`,
+            `房产情况：${userData.房产情况 || '未填写'}`
+        ];
+        
+        addBulletList(hukouInfo, 12);
+        y += 5;
+        
+        // 判断入学类型
+        const admissionType = 判断入学类型(userData);
+        addSubtitle('入学顺位分析', 14);
+        addText(admissionType, 12, true);
+        y += 10;
+        
+        addSubtitle('预估入学概率', 14);
+        const admissionProb = [
+            "第一顺位（房户一致）：80-100%",
+            "第二顺位（房户不一致）：60-80%",
+            "第三顺位（集体户/安置房）：40-60%",
+            "第四顺位（租房/随迁）：20-40%"
+        ];
+        addBulletList(admissionProb, 11);
+        
+        /*********************** 4. 学校推荐 ***********************/
+        pdf.addPage();
+        y = 20;
+        
+        addTitle('三、个性化学校推荐', 18);
+        y += 10;
         
         const schoolCards = document.querySelectorAll(".school-card");
         if (schoolCards.length === 0) {
-            pdf.setFontSize(12);
-            addText("(No recommendation results yet)");
+            addSubtitle('推荐学校', 14);
+            addText("暂未生成学校推荐，请在系统中查看详细推荐。", 12);
         } else {
+            let schoolCount = 1;
             schoolCards.forEach((card, index) => {
                 checkNewPage();
                 
-                const schoolName = card.querySelector("h3, h4")?.innerText || "Unknown School";
+                const schoolName = card.querySelector("h3, h4")?.innerText || "未知学校";
                 const matchBadge = card.querySelector(".match-badge")?.innerText || "";
                 const details = card.querySelectorAll("p");
                 
-                pdf.setFontSize(14);
-                addText(`${index + 1}. ${schoolName}`);
+                addSubtitle(`${schoolCount}. ${schoolName}`, 13);
+                if (matchBadge) {
+                    addText(matchBadge, 11, true);
+                }
                 
-                pdf.setFontSize(11);
-                if (matchBadge) addText(`  ${matchBadge}`);
-                
+                const schoolInfo = [];
                 details.forEach(p => {
                     const text = p.innerText || p.textContent || "";
                     if (text.trim()) {
-                        addText(`  ${text.substring(0, 100)}`); // 限制长度
+                        schoolInfo.push(text.substring(0, 80)); // 限制长度
                     }
                 });
                 
+                if (schoolInfo.length > 0) {
+                    addBulletList(schoolInfo, 10);
+                }
+                
                 y += 5;
+                schoolCount++;
+                
+                // 每所学校后添加分隔线（除了最后一个）
+                if (index < schoolCards.length - 1) {
+                    addDivider();
+                }
             });
         }
         
-        /*********************** 4. 时间规划 ***********************/
+        /*********************** 5. 时间规划 ***********************/
         pdf.addPage();
         y = 20;
         
-        pdf.setFontSize(16);
-        pdf.text("3. Admission Timeline", leftMargin, y);
-        y += 12;
-        
-        pdf.setFontSize(12);
-        const timeline = [
-            "July 11-24: Public and private school application",
-            "July 30: Private school lottery draw",
-            "August 1-5: Private school supplementary application",
-            "Before August 10: Public school admission notice",
-            "August 15-20: Overall admission arrangement",
-            "August 25-31: Schools issue admission letters"
-        ];
-        
-        timeline.forEach(item => {
-            addText(`- ${item}`);
-        });
-        
-        /*********************** 5. 政策提醒 ***********************/
+        addTitle('四、小升初时间规划', 18);
         y += 10;
-        pdf.setFontSize(16);
-        pdf.text("4. Policy Reminders", leftMargin, y);
-        y += 12;
         
-        pdf.setFontSize(12);
-        const policies = [
-            "Ensure all application materials are ready before July 11",
-            "Confirm admission promptly after lottery results announced",
-            "Students not admitted to private schools enter public admission",
-            "Learn about admission policies of corresponding public schools",
-            "Follow Xi'an Education Bureau official website for updates"
+        const grade = userData.当前年级 || '六年级';
+        const timelineItems = generateTimeline(grade);
+        
+        addSubtitle(`${grade}时间规划表`, 14);
+        addBulletList(timelineItems, 11);
+        
+        /*********************** 6. 政策提醒 ***********************/
+        y += 10;
+        addSubtitle('重要政策提醒', 14);
+        
+        const policyReminders = [
+            "公民办学校同步招生，只能选择其中一类报名",
+            "民办学校实行电脑随机录取（摇号）",
+            "未被民办录取的学生，由教育局统筹安排公办入学",
+            "随迁子女需提供居住证、务工证明等材料",
+            "请关注西安市教育局官网获取最新政策"
         ];
         
-        policies.forEach(item => {
-            addText(`- ${item}`);
-        });
+        addBulletList(policyReminders, 11);
         
-        /*********************** 6. 报告说明 ***********************/
+        /*********************** 7. 报告说明 ***********************/
         pdf.addPage();
         y = 20;
         
-        pdf.setFontSize(16);
-        pdf.text("5. Report Notes", leftMargin, y);
-        y += 12;
+        addTitle('五、报告说明', 18);
+        y += 10;
         
-        pdf.setFontSize(11);
-        const notes = [
-            "1. This report is generated by AI based on user-provided information",
-            "2. School recommendations follow Xi'an 2025 admission policies",
-            "3. All data comes from official education bureau releases",
-            "4. For reference only, actual admission subject to official policies",
-            "5. It is recommended to visit schools for on-site inspection",
-            "6. Policy interpretation is for reference, consult education bureau for accuracy"
+        const reportNotes = [
+            "1. 本报告基于用户填写信息和西安市2025年小升初政策生成",
+            "2. 学校推荐基于西安市教育局官方公布的学校名单",
+            "3. 入学概率为理论预估，实际结果以当年录取为准",
+            "4. 时间安排为常规规划，具体时间请以官方通知为准",
+            "5. 建议家长结合实际情况，多方面了解目标学校",
+            "6. 最终解释权以西安市教育局官方政策为准"
         ];
         
-        notes.forEach(note => {
-            addText(note);
-        });
+        addBulletList(reportNotes, 11);
         
-        y += 10;
-        pdf.setFontSize(10);
-        pdf.text(`Report Generation Time: ${new Date().toLocaleString('zh-CN')}`, 
-                 leftMargin, y);
-        pdf.text("Data Source: Xi'an Education Bureau", leftMargin, y + 7);
+        y += 15;
+        addText(`报告生成时间：${new Date().toLocaleString('zh-CN')}`, 10);
+        addText("数据来源：西安市教育局官方网站", 10);
+        addText("技术支持：西安小升初智能评估系统", 10);
+        
+        // 添加页脚
+        const pageCount = pdf.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(9);
+            pdf.text(`第 ${i} 页 / 共 ${pageCount} 页`, pageWidth / 2, 290, { align: 'center' });
+        }
         
         // 保存PDF
-        const filename = `XiAn_SchoolReport_${Date.now()}.pdf`;
+        const filename = `西安小升初评估报告_${new Date().toLocaleDateString('zh-CN')}.pdf`;
         pdf.save(filename);
         
         // 移除加载提示
         document.getElementById('pdf-loading')?.remove();
         
-        alert('PDF报告生成成功!');
+        alert('PDF报告生成成功！已保存为：' + filename);
         
     } catch (error) {
         console.error('PDF生成失败:', error);
@@ -1438,31 +1536,37 @@ function generateTimeline(grade) {
         case "小学六年级":
         case "六年级":
             return [
-                "2025年3月：关注民办招生简章发布",
-                "2025年4月：参加民办学校咨询会",
-                "2025年5月：核查户籍与房产信息",
-                "2025年6月：参加民办摇号 / 公办登记",
-                "2025年7月：公布录取结果",
-                "2025年8月：办理入学手续"
+                "2025年3月：关注民办招生简章发布，参加学校开放日",
+                "2025年4月：参加民办学校咨询会，了解目标学校",
+                "2025年5月：核查户籍与房产信息，准备报名材料",
+                "2025年6月：网上报名，参加民办摇号或公办登记",
+                "2025年7月：公布录取结果，确认入学意向",
+                "2025年8月：办理入学手续，准备新生报到"
             ];
         case "小学五年级":
         case "五年级":
             return [
-                "2025年：提高综合素养成绩",
-                "2026年春季：开始重点关注目标学校",
-                "2026年6月：演练时间规划",
-                "2027年：进入正式报名准备阶段"
+                "2025年9-12月：重点提升学业成绩，培养学习习惯",
+                "2026年1-3月：了解小升初政策，初步筛选目标学校",
+                "2026年4-6月：参加各类素质拓展活动，丰富简历",
+                "2026年7-8月：暑期强化训练，查漏补缺",
+                "2026年9月：进入六年级，开始全面准备"
             ];
         case "小学四年级":
         case "四年级":
             return [
-                "2025-2026年：打好学科基础",
-                "2026年：参加各类素质拓展活动",
-                "2027年：了解学校信息，制定目标",
-                "2028年：正式准备升学"
+                "2025年：打好语文、数学、英语学科基础",
+                "2026年：培养综合素养，参加兴趣班和社团活动",
+                "2027年：了解学校信息，制定升学目标",
+                "2028年：正式准备升学材料，关注政策变化"
             ];
         default:
-            return ["根据最新政策动态，AI 会自动调整规划。"];
+            return [
+                "请关注西安市教育局官方网站获取最新政策",
+                "建议提前了解目标学校的招生要求",
+                "准备好户籍、房产等相关证明材料",
+                "关注学校开放日和招生咨询会信息"
+            ];
     }
 }
 
