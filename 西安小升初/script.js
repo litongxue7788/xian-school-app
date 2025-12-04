@@ -454,15 +454,15 @@ async function sendMessage() {
         const userData = collectUserDataForAI();
         const userMemory = getUserMemory();
         
-        // 构建强化的AI提示词
+        // 构建强化的AI提示词 - 修复版：移除了硬编码的文件路径引用
         const contextPrompt = `
 你是一个专业的西安小升初智能助手"小猫助手"。你拥有以下核心能力：
 
 【重要指令】
-1. 你必须以 data/schools.json 与 data/districts.json 为准；
-2. 除这些数据外，不允许猜测数据；
-3. 你只能使用 data/schools.json 和 data/districts.json 中的真实信息；
-4. 若用户询问的学校不在列表内，你必须回答"我目前数据库内还没有该学校的最新学区信息"；
+1. 你必须以西安市2025年官方公布的学校名单和学区划分为准；
+2. 除西安市教育局官方公布的数据外，不允许猜测数据；
+3. 你只能使用西安市教育局官方认可的真实学校信息和学区划分信息；
+4. 若用户询问的学校不在官方公布的名单内，你必须回答"我目前数据库内还没有该学校的最新学区信息"；
 5. 禁止猜测、禁止编造、禁止杜撰。
 
 【用户已填写信息 - 请严格基于这些真实信息分析】
@@ -491,7 +491,7 @@ ${message}
 📌 1. 学校基本信息
 📍 类型：公办/民办（必须准确）
 📍 区县：（必须准确）
-📍 对口学区（严格按 districts.json）：
+📍 对口学区（参考西安市教育局2025年学区划分）：
 
 📌 2. 入学顺位分析
 📍 用户当前户籍类型：（基于用户数据判断）
@@ -607,7 +607,7 @@ async function quickAction(text) {
         if (text === '2026年小升初时间安排') {
             question = `用户信息：${JSON.stringify(userMemory)}\n请基于以上用户情况，预测2026年西安小升初的时间安排和重要节点`;
         } else if (text === '民办学校有哪些') {
-            question = `用户预算：${userData.预算范围}\n请列出西安市主要的民办初中学校（基于schools.json真实数据）`;
+            question = `用户预算：${userData.预算范围}\n请列出西安市主要的民办初中学校（基于西安市教育局2025年官方名单）`;
         } else if (text === '摇号政策') {
             question = `用户户籍：${userData.户籍所在区}\n请详细解释西安市民办初中摇号政策的具体流程`;
         }
@@ -919,7 +919,7 @@ async function showSchoolRecommendations() {
     try {
         const userData = collectUserDataForAI();
         
-        // 构建详细的推荐prompt
+        // 构建详细的推荐prompt - 修复版：移除了硬编码的文件路径引用
         const prompt = `
 请根据以下学生完整信息，生成【个性化学校推荐】:
 
@@ -947,10 +947,10 @@ async function showSchoolRecommendations() {
 - 学科倾向: ${userData.能力评估['维度6'] || '未评估'}分
 
 【重要指令】
-1. 你必须以 data/schools.json 与 data/districts.json 为准；
-2. 除这些数据外，不允许猜测数据；
-3. 只能推荐数据库中的真实学校；
-4. 如果数据库中无对应信息，请明确说明。
+1. 你必须以西安市2025年教育局官方公布的学校名单和学区划分信息为准；
+2. 除西安市教育局官方公布的数据外，不允许猜测数据；
+3. 只能推荐西安市教育局2025年官方名单中的真实学校；
+4. 如果官方名单中无对应信息，请明确说明"根据西安市教育局2025年公布名单，该学校信息暂未收录"。
 
 【推荐要求】
 1. **必须严格遵循西安市2025年招生政策**
@@ -962,16 +962,16 @@ async function showSchoolRecommendations() {
    - 必须说明摇号概率(基于历史数据)
 4. **推荐5所学校**: 2所冲刺校 + 2所稳妥校 + 1所保底校
 5. **每所学校必须包含**:
-   - 学校名称(必须是真实存在的西安学校)
+   - 学校名称(必须是西安市真实存在的学校，参考西安市教育局2025年名单)
    - 类型(民办/公办)
    - 匹配度(百分比)
    - 推荐理由(结合学生能力+地理位置+政策要求)
-   - 摇号概率/入学概率
+   - 摇号概率/入学概率(基于2024年历史数据估算)
    - 学校特色
    - 推荐类型(冲刺/稳妥/保底)
-   - 收费标准(民办学校必填)
-   - 入学要求(政策依据)
-   - 数据来源(必须说明)
+   - 收费标准(民办学校必填，参考2024年标准)
+   - 入学要求(政策依据，参考西安市2025年小升初政策)
+   - 数据来源(教育局官网/学校招生简章/官方政策文件)
 
 6. **输出格式要求**:
 以HTML格式输出,使用以下结构：
@@ -984,7 +984,7 @@ async function showSchoolRecommendations() {
     <div class="school-details">
         <p><strong>类型:</strong> 民办/公办</p>
         <p><strong>区县:</strong> 【区县名称】</p>
-        <p><strong>对口学区:</strong> 【严格按districts.json填写】</p>
+        <p><strong>对口学区:</strong> 【参考西安市教育局2025年学区划分】</p>
         <p><strong>特色:</strong> 【学校特色】</p>
         <p><strong>预估摇号概率/入学概率:</strong> XX%</p>
         <p><strong>推荐理由:</strong> 【具体分析】</p>
@@ -2133,4 +2133,3 @@ window.exportPDF = exportPDF;
 window.generateFullPdfReport = generateFullPdfReport;
 window.askCatAssistant = askCatAssistant;
 window.generateSchoolRecommendation = generateReport;
-
