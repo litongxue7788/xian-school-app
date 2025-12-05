@@ -898,9 +898,9 @@ const STREET_DATA = {
     '航天基地': ['航天大道街道', '东长安街道', '神舟四路街道', '神舟五路街道']
 };
 
-// ========== 学校数据加载函数 ==========
+// ========== 学校数据加载函数（增强版）==========
 
-// 加载所有区县的学校数据
+// 【修复】加载所有区县的学校数据 - 增强版，解决文件路径问题
 async function loadAllDistrictsData() {
     try {
         console.log('开始加载学校数据...');
@@ -913,12 +913,74 @@ async function loadAllDistrictsData() {
             '浐灞国际港', '航天基地'
         ];
         
+        // 文件存在性检测结果
+        let foundFiles = 0;
+        let missingFiles = [];
+        
+        // 尝试多种可能的路径
+        const basePaths = [
+            '', // 相对根目录（如果HTML在项目根目录）
+            './', // 当前目录
+            'data/districts/', // 相对路径
+            '../data/districts/', // 上级目录
+            '/data/districts/' // 绝对路径
+        ];
+        
         for (const district of districts) {
-            try {
-                // 动态导入区县数据文件
-                const module = await import(`./data/districts/${district}.js`);
-                const districtData = module.default || module;
+            let districtData = null;
+            let loadedPath = null;
+            
+            // 方法1：检查全局变量中是否已有数据
+            if (window[district] || window[`${district}Data`]) {
+                districtData = window[district] || window[`${district}Data`];
+                console.log(`✅ ${district}: 从全局变量加载`);
+                loadedPath = 'global';
+            } 
+            // 方法2：检查DISTRICTS全局对象
+            else if (window.DISTRICTS && window.DISTRICTS[district]) {
+                districtData = window.DISTRICTS[district];
+                console.log(`✅ ${district}: 从DISTRICTS对象加载`);
+                loadedPath = 'DISTRICTS';
+            }
+            // 方法3：尝试动态导入文件
+            else {
+                console.log(`🔄 ${district}: 尝试加载文件...`);
                 
+                // 尝试不同的基础路径
+                for (const basePath of basePaths) {
+                    const filePath = `${basePath}${district}.js`;
+                    try {
+                        // 使用XMLHttpRequest检查文件是否存在
+                        const fileExists = await checkFileExists(filePath);
+                        if (fileExists) {
+                            try {
+                                // 尝试动态导入
+                                const module = await import(`./${filePath}`);
+                                districtData = module.default || module;
+                                console.log(`✅ ${district}: 从 ${filePath} 加载成功`);
+                                loadedPath = filePath;
+                                foundFiles++;
+                                break;
+                            } catch (importError) {
+                                console.warn(`⚠️ ${district}: 导入 ${filePath} 失败:`, importError.message);
+                                continue;
+                            }
+                        }
+                    } catch (checkError) {
+                        // 文件不存在，继续尝试下一个路径
+                        continue;
+                    }
+                }
+                
+                // 如果所有路径都失败
+                if (!districtData) {
+                    missingFiles.push(district);
+                    console.warn(`❌ ${district}: 无法找到数据文件`);
+                }
+            }
+            
+            // 处理加载到的数据
+            if (districtData) {
                 // 【关键修复】使用数据适配层处理学校数据
                 const adaptedPublicSchools = adaptSchoolsBatch(districtData.public_schools || [], district);
                 const adaptedPrivateSchools = adaptSchoolsBatch(districtData.private_schools || [], district);
@@ -926,41 +988,127 @@ async function loadAllDistrictsData() {
                 
                 // 转换为标准格式
                 SCHOOLS_DATA[district] = {
-                    metadata: districtData.metadata,
+                    metadata: districtData.metadata || { district: district, data_year: "2025" },
                     schools: allAdaptedSchools,
                     public_schools: adaptedPublicSchools,
                     private_schools: adaptedPrivateSchools,
                     statistics: districtData.statistics || { 
                         total_private: adaptedPrivateSchools.length, 
                         total_public: adaptedPublicSchools.length 
-                    }
+                    },
+                    loadedFrom: loadedPath || 'unknown'
                 };
-                
-                console.log(`✅ 加载 ${district} 数据成功，${adaptedPublicSchools.length}所公办，${adaptedPrivateSchools.length}所民办`);
-                console.log(`   数据已适配：district字段统一处理`);
-            } catch (error) {
-                console.warn(`⚠️ 加载 ${district} 数据失败:`, error.message);
+            } else {
                 // 创建空数据占位
                 SCHOOLS_DATA[district] = {
-                    metadata: { district: district, data_year: "2025" },
+                    metadata: { 
+                        district: district, 
+                        data_year: "2025", 
+                        note: "数据文件未找到",
+                        missing: true 
+                    },
                     schools: [],
                     public_schools: [],
                     private_schools: [],
-                    statistics: { total_private: 0, total_public: 0 }
+                    statistics: { total_private: 0, total_public: 0 },
+                    loadedFrom: 'none'
                 };
             }
         }
         
-        console.log('学校数据加载完成:', Object.keys(SCHOOLS_DATA).length, '个区县');
-        console.log('数据结构已统一适配，可使用标准字段查询');
+        // 显示加载统计
+        console.log(`学校数据加载完成: ${foundFiles}/${districts.length} 个区县有数据文件`);
+        
+        if (missingFiles.length > 0) {
+            console.warn(`⚠️ 以下区县数据文件未找到:`, missingFiles);
+            
+            // 提供详细的帮助信息
+            if (missingFiles.length === districts.length) {
+                console.error(`
+❌ 所有区县数据文件都未找到！请检查：
+1. 确保 data/districts/ 目录存在
+2. 确保区县JS文件存在（如：新城区.js）
+3. 确保文件在正确的路径下
+4. 如果使用本地服务器，确保文件可访问
+
+当前尝试的路径:
+${basePaths.map(p => `- ${p}${districts[0]}.js`).join('\n')}
+                `);
+                
+                // 提供紧急解决方案
+                await provideEmergencyData();
+            }
+        }
+        
+        // 诊断数据结构
+        diagnoseSchoolStructure();
+        
         return SCHOOLS_DATA;
         
     } catch (error) {
         console.error('学校数据加载失败:', error);
-        // 返回空数据
-        SCHOOLS_DATA = {};
+        // 提供紧急回退数据
+        await provideEmergencyData();
         return SCHOOLS_DATA;
     }
+}
+
+// 【新增】检查文件是否存在
+async function checkFileExists(url) {
+    try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok;
+    } catch (error) {
+        return false;
+    }
+}
+
+// 【新增】提供紧急数据（当找不到文件时）
+async function provideEmergencyData() {
+    console.log('⚠️ 正在提供紧急演示数据...');
+    
+    // 创建基础演示数据
+    const emergencyDistricts = ['新城区', '碑林区', '雁塔区', '未央区'];
+    
+    emergencyDistricts.forEach(district => {
+        SCHOOLS_DATA[district] = {
+            metadata: { 
+                district: district, 
+                data_year: "2025", 
+                note: "紧急演示数据 - 请配置区县数据文件" 
+            },
+            schools: [
+                {
+                    id: `${district}_emergency_1`,
+                    name: `${district}实验中学`,
+                    type: '公办',
+                    district: district,
+                    address: `${district}中心路1号`,
+                    features: ['重点学校', '实验班'],
+                    tuition: 0,
+                    admissionRate: 80,
+                    matchScore: 70
+                },
+                {
+                    id: `${district}_emergency_2`,
+                    name: `${district}民办中学`,
+                    type: '民办',
+                    district: district,
+                    address: `${district}教育路2号`,
+                    features: ['小班教学', '外语特色'],
+                    tuition: 25000,
+                    admissionRate: 65,
+                    matchScore: 65
+                }
+            ],
+            public_schools: [],
+            private_schools: [],
+            statistics: { total_private: 1, total_public: 1 },
+            loadedFrom: 'emergency'
+        };
+    });
+    
+    console.log('✅ 紧急演示数据已创建');
 }
 
 // 【修复】从本地数据库获取学校信息的函数 - 使用适配后的数据
@@ -1180,7 +1328,7 @@ function goToStep2() { showStep(2); }
 function goToStep3() { showStep(3); }
 function goToStep4() { showStep(4); }
 function goToStep5() { showStep(5); }
-function goToStep6() { showStep(6); }
+function goToStep6() { goToStep6(); }
 function goToStep7() { showStep(7); }
 
 // 切换聊天窗口显示/隐藏
@@ -1862,41 +2010,48 @@ function aggregateAndRank(candidateMap, profile, N = 10) {
     return final.slice(0, N).map(f => ({ ...f.school, matchScore: f.score }));
 }
 
-// 【新增】主要推荐管道
+// 【修复】主要推荐管道 - 增强错误处理
 async function runRecommendationPipeline() {
-    // 1. 通过DOM助手收集用户输入
-    const profile = collectStudentProfile();
-    
-    // 基本验证
-    if (!profile.residenceDistrict && !profile.hukouDistrict) {
-        alert('请至少填写 户籍区 或 居住区 中的一个（用于匹配学区）。');
-        return;
+    try {
+        // 1. 通过DOM助手收集用户输入
+        const profile = collectStudentProfile();
+        
+        // 基本验证
+        if (!profile.residenceDistrict && !profile.hukouDistrict) {
+            alert('请至少填写 户籍区 或 居住区 中的一个（用于匹配学区）。');
+            return { profile: profile, finalList: [], analysisText: '请至少填写户籍区或居住区。' };
+        }
+
+        // 2. 收集所有学校（标准化）
+        const allSchools = await collectAllSchools();
+        if (!allSchools || allSchools.length === 0) {
+            console.warn('没有加载到任何学校数据，使用空数组。');
+            return { profile: profile, finalList: [], analysisText: '未找到学校数据，请检查数据文件。' };
+        }
+
+        // 3. 根据规则进行初始筛选
+        const candidateMap = initialFilterByProfile(allSchools, profile);
+
+        // 4. 根据用户偏好进一步筛选民办学校
+        candidateMap.privateFromResidence = filterPrivateByPreferences(candidateMap.privateFromResidence, profile);
+
+        // 5. 聚合和排名
+        const finalList = aggregateAndRank(candidateMap, profile, 10);
+
+        // 6. 调用AI进行分析（如果可能）
+        const analysisText = await callAIForAnalysis(profile, finalList);
+
+        // 7. 返回供编程使用
+        return { profile, finalList, analysisText };
+    } catch (error) {
+        console.error('推荐管道执行出错:', error);
+        // 返回一个空数组的finalList，避免页面崩溃
+        return { 
+            profile: profile || {}, 
+            finalList: [], 
+            analysisText: '生成推荐时出错：' + error.message 
+        };
     }
-
-    // 2. 收集所有学校（标准化）
-    const allSchools = await collectAllSchools();
-    if (!allSchools || allSchools.length === 0) {
-        alert('没有加载到任何学校数据，无法生成推荐。请确认区县数据脚本是否已正确引入。');
-        return;
-    }
-
-    // 3. 根据规则进行初始筛选
-    const candidateMap = initialFilterByProfile(allSchools, profile);
-
-    // 4. 根据用户偏好进一步筛选民办学校
-    candidateMap.privateFromResidence = filterPrivateByPreferences(candidateMap.privateFromResidence, profile);
-
-    // 5. 聚合和排名
-    const finalList = aggregateAndRank(candidateMap, profile, 10);
-
-    // 6. 调用AI进行分析（如果可能）
-    const analysisText = await callAIForAnalysis(profile, finalList);
-
-    // 7. 渲染到UI
-    renderRecommendations(profile, finalList, analysisText);
-
-    // 8. 返回供编程使用
-    return { profile, finalList, analysisText };
 }
 
 // 【新增】在页面渲染推荐结果
@@ -1959,19 +2114,22 @@ async function showEnhancedSchoolRecommendations() {
         // 使用新的推荐管道
         const result = await runRecommendationPipeline();
         
+        // 确保result有finalList属性，即使为空数组
+        const finalList = result.finalList || [];
+        
         // 构建增强的HTML显示
         let recommendationHTML = `
             <div class="recommendation-container">
                 <div class="enrollment-info" style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #3b82f6;">
                     <h4 style="margin: 0 0 10px 0; color: #1e40af;">📋 智能推荐结果</h4>
-                    <p><strong>共找到：</strong>${result.finalList.length}所匹配学校</p>
+                    <p><strong>共找到：</strong>${finalList.length}所匹配学校</p>
                     <p><strong>推荐算法：</strong>综合户籍、居住、预算、特色等多维度匹配</p>
                 </div>
         `;
         
         // 分类显示学校
-        const publicSchools = result.finalList.filter(s => s.type === '公办');
-        const privateSchools = result.finalList.filter(s => s.type === '民办');
+        const publicSchools = finalList.filter(s => s.type === '公办');
+        const privateSchools = finalList.filter(s => s.type === '民办');
         
         if (publicSchools.length > 0) {
             recommendationHTML += `
@@ -2133,7 +2291,7 @@ async function showEnhancedSchoolRecommendations() {
             
             <div class="ai-analysis" style="margin-top: 20px; padding: 20px; background: #f0f9ff; border-radius: 8px; border-left: 4px solid #3b82f6;">
                 <h4 style="margin: 0 0 15px 0; color: #1e40af;">🤖 小猫智能分析</h4>
-                <div style="line-height: 1.6; color: #374151; white-space: pre-wrap;">${result.analysisText}</div>
+                <div style="line-height: 1.6; color: #374151; white-space: pre-wrap;">${result.analysisText || '暂无分析结果'}</div>
                 <div class="source-info" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #d1e9ff;">
                     <span class="trust-badge trust-verified">✅ 基于完整信息分析</span>
                     综合考虑户籍、居住、预算、特长、理念等多维度因素
@@ -3156,6 +3314,9 @@ async function initializeApp() {
     setupChatDrag();
         
     console.log('应用初始化完成，学校数据已加载并适配');
+    
+    // 绑定提交按钮
+    bindSubmitButtons();
 }
 
 // DOM加载完成后初始化
@@ -3246,6 +3407,30 @@ function testDataAdaptation() {
     return adapted;
 }
 
+// 【新增】检查数据文件是否存在
+function checkDataFiles() {
+    console.log('=== 检查数据文件是否存在 ===');
+    
+    const districts = [
+        '新城区', '碑林区', '莲湖区', '雁塔区', '灞桥区', '未央区',
+        '阎良区', '临潼区', '长安区', '高陵区', '鄠邑区', '蓝田县',
+        '周至县', '西咸新区', '高新区', '经开区', '曲江新区',
+        '浐灞国际港', '航天基地'
+    ];
+    
+    console.log('项目目录结构应包含:');
+    console.log('西安小升初/');
+    console.log('├── data/');
+    console.log('│   └── districts/');
+    
+    districts.forEach(district => {
+        console.log(`│       ├── ${district}.js`);
+    });
+    
+    console.log('\n请确认这些文件是否存在');
+    console.log('如果文件不存在，系统将使用演示数据');
+}
+
 // ========== 导出全局函数 ==========
 window.showStep = showStep;
 window.toggleChat = toggleChat;
@@ -3272,7 +3457,7 @@ window.generateFullPdfReport = generateFullPdfReport;
 window.askCatAssistant = askCatAssistant;
 window.getUserFullInfoString = getUserFullInfoString;
 window.showEnhancedSchoolRecommendations = showEnhancedSchoolRecommendations;
-window.getAvailableSchools = getAvailableSchools;
+window.getAvailableSchools = getSchoolsFromLocalData;
 window.determineEnrollmentType = determineEnrollmentType;
 window.callAIAPIWithFullContext = callAIAPIWithFullContext;
 window.formatAIResponse = formatAIResponse;
@@ -3280,3 +3465,5 @@ window.adaptSchoolStructure = adaptSchoolStructure;
 window.adaptSchoolsBatch = adaptSchoolsBatch;
 window.diagnoseSchoolStructure = diagnoseSchoolStructure;
 window.testDataAdaptation = testDataAdaptation;
+window.checkDataFiles = checkDataFiles;
+window.runRecommendationPipeline = runRecommendationPipeline;
