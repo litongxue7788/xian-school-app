@@ -180,7 +180,76 @@ function getUserMemory() {
     return USER_MEMORY;
 }
 
-// 【修复】增强版数据收集 - 确保收集所有信息（从 fixed_pdf_generation.js）
+// ========== 数据适配层 - 新增函数 ==========
+// 【新增】统一学校数据结构适配器
+function adaptSchoolStructure(school, districtName) {
+    if (!school) return null;
+    
+    // 统一的学校结构
+    const adaptedSchool = {
+        // 基本信息
+        id: school.id || school.name?.replace(/\s+/g, '_') || `school_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        name: school.name || '未知学校',
+        type: school.type || (school.level && school.level.includes('民办') ? '民办' : '公办'),
+        level: school.level || school.school_stage || '初中',
+        
+        // 位置信息 - 关键修复：统一 district 字段
+        district: school.district || school.newcity || districtName || '未知区',
+        newcity: school.newcity || districtName || '未知区',
+        address: school.address || school.location || '',
+        
+        // 入学相关信息
+        学区: school.学区 || school.streets || [],
+        features: school.features || [],
+        
+        // 学业表现
+        graduation_rate: school.graduation_rate || school.admissionRate || 70,
+        admissionRate: school.admissionRate || school.graduation_rate || 70,
+        
+        // 费用信息
+        tuition: school.tuition || (school.type === '民办' ? 30000 : 0),
+        
+        // 其他信息
+        provides_dorm: school.provides_dorm || (school.type === '民办'),
+        special_classes: school.special_classes || school.features || [],
+        discipline_rating: school.discipline_rating || 4.0,
+        
+        // 位置坐标（如果有）
+        latitude: school.latitude || 34.3416,
+        longitude: school.longitude || 108.9398,
+        
+        // 联系方式
+        contact_phone: school.contact_phone || '029-XXXXXXXX',
+        website: school.website || '',
+        is_key_school: school.is_key_school || (school.level && (school.level.includes('重点') || school.level.includes('示范')))
+    };
+    
+    // 确保学区字段是数组
+    if (!Array.isArray(adaptedSchool.学区) && adaptedSchool.学区) {
+        adaptedSchool.学区 = [adaptedSchool.学区];
+    }
+    
+    // 确保特色班是数组
+    if (!Array.isArray(adaptedSchool.special_classes) && adaptedSchool.special_classes) {
+        adaptedSchool.special_classes = [adaptedSchool.special_classes];
+    }
+    
+    return adaptedSchool;
+}
+
+// 【新增】批量适配学校数据
+function adaptSchoolsBatch(schools, districtName) {
+    if (!schools || !Array.isArray(schools)) {
+        console.warn(`适配学校数据失败：无效的输入 -`, schools);
+        return [];
+    }
+    
+    return schools
+        .map(school => adaptSchoolStructure(school, districtName))
+        .filter(school => school !== null);
+}
+
+// 【修复】增强版数据收集 - 确保收集所有信息
 function collectUserDataForAI() {
     const userData = {
         // 学生基本信息
@@ -380,16 +449,25 @@ async function loadAllDistrictsData() {
                 const module = await import(`./data/districts/${district}.js`);
                 const districtData = module.default || module;
                 
+                // 【关键修复】使用数据适配层处理学校数据
+                const adaptedPublicSchools = adaptSchoolsBatch(districtData.public_schools || [], district);
+                const adaptedPrivateSchools = adaptSchoolsBatch(districtData.private_schools || [], district);
+                const allAdaptedSchools = [...adaptedPublicSchools, ...adaptedPrivateSchools];
+                
                 // 转换为标准格式
                 SCHOOLS_DATA[district] = {
                     metadata: districtData.metadata,
-                    schools: districtData.public_schools.concat(districtData.private_schools),
-                    public_schools: districtData.public_schools,
-                    private_schools: districtData.private_schools,
-                    statistics: districtData.statistics
+                    schools: allAdaptedSchools,
+                    public_schools: adaptedPublicSchools,
+                    private_schools: adaptedPrivateSchools,
+                    statistics: districtData.statistics || { 
+                        total_private: adaptedPrivateSchools.length, 
+                        total_public: adaptedPublicSchools.length 
+                    }
                 };
                 
-                console.log(`✅ 加载 ${district} 数据成功，${districtData.public_schools.length}所公办，${districtData.private_schools.length}所民办`);
+                console.log(`✅ 加载 ${district} 数据成功，${adaptedPublicSchools.length}所公办，${adaptedPrivateSchools.length}所民办`);
+                console.log(`   数据已适配：district字段统一处理`);
             } catch (error) {
                 console.warn(`⚠️ 加载 ${district} 数据失败:`, error.message);
                 // 创建空数据占位
@@ -404,6 +482,7 @@ async function loadAllDistrictsData() {
         }
         
         console.log('学校数据加载完成:', Object.keys(SCHOOLS_DATA).length, '个区县');
+        console.log('数据结构已统一适配，可使用标准字段查询');
         return SCHOOLS_DATA;
         
     } catch (error) {
@@ -414,7 +493,7 @@ async function loadAllDistrictsData() {
     }
 }
 
-// 【新增】从本地数据库获取学校信息的函数（从 fixed_script_core.js）
+// 【修复】从本地数据库获取学校信息的函数 - 使用适配后的数据
 function getSchoolsFromLocalData(district, streetName = null) {
     // 尝试从全局变量获取学校数据
     const districtData = SCHOOLS_DATA[district] || {};
@@ -430,8 +509,11 @@ function getSchoolsFromLocalData(district, streetName = null) {
             return true; // 如果学校没有学区限制，则包含
         }
         // 检查学区是否包含该街道
-        return school.学区.includes(streetName) || 
-               (school.features && school.features.some(f => f.includes(streetName)));
+        return school.学区.some(street => 
+            street.includes(streetName) || 
+            streetName.includes(street) ||
+            (school.features && school.features.some(f => f.includes(streetName)))
+        );
     });
 }
 
@@ -479,7 +561,7 @@ async function callAIAPI(message, provider, apiKey, appId = '') {
     }
 }
 
-// 【新增】调用AI API并传递完整上下文（从 enhanced_chat_functions.js）
+// 【新增】调用AI API并传递完整上下文
 async function callAIAPIWithFullContext(message, userFullInfo, userData, provider, apiKey, appId = '') {
     try {
         console.log('调用AI API（完整上下文）:', { 
@@ -631,7 +713,7 @@ function useLocalMode() {
 
 // ========== 小猫助手功能（增强版）==========
 
-// 【修复】增强版sendMessage - 传递完整用户信息（从 enhanced_chat_functions.js）
+// 【修复】增强版sendMessage - 传递完整用户信息
 async function sendMessage() {
     const chatInput = document.getElementById('chatInput');
     const message = chatInput.value.trim();
@@ -676,7 +758,7 @@ async function sendMessage() {
     }
 }
 
-// 【修复】快捷操作 - 传递完整上下文（从 enhanced_chat_functions.js）
+// 【修复】快捷操作 - 传递完整上下文
 async function quickAction(text) {
     if (!CONFIG.isConnected) {
         alert(`快捷操作 "${text}" 在本地模式下不可用。请切换到在线模式。`);
@@ -734,7 +816,7 @@ function askCatAssistant(question) {
     }
 }
 
-// 【修复】添加消息到聊天窗口（从 enhanced_chat_functions.js）
+// 【修复】添加消息到聊天窗口
 function addMessageToChat(role, content) {
     const chatBody = document.getElementById('chatBody');
     const messageDiv = document.createElement('div');
@@ -765,7 +847,7 @@ function addMessageToChat(role, content) {
     chatBody.scrollTop = chatBody.scrollHeight;
 }
 
-// 【新增】格式化AI响应（美化显示）（从 enhanced_chat_functions.js）
+// 【新增】格式化AI响应（美化显示）
 function formatAIResponse(content) {
     // 处理换行
     let formatted = content.replace(/\n/g, '<br>');
@@ -786,7 +868,7 @@ function formatAIResponse(content) {
     return formatted;
 }
 
-// 【修复】显示加载指示器（从 enhanced_chat_functions.js）
+// 【修复】显示加载指示器
 function showLoadingIndicator() {
     const chatBody = document.getElementById('chatBody');
     const loadingDiv = document.createElement('div');
@@ -803,7 +885,7 @@ function showLoadingIndicator() {
     chatBody.scrollTop = chatBody.scrollHeight;
 }
 
-// 【修复】隐藏加载指示器（从 enhanced_chat_functions.js）
+// 【修复】隐藏加载指示器
 function hideLoadingIndicator() {
     const loadingDiv = document.getElementById('loading-indicator');
     if (loadingDiv) {
@@ -811,7 +893,7 @@ function hideLoadingIndicator() {
     }
 }
 
-// 【修复】处理聊天键盘事件（从 enhanced_chat_functions.js）
+// 【修复】处理聊天键盘事件
 function handleChatKeyPress(event) {
     const textarea = event.target;
     
@@ -826,7 +908,7 @@ function handleChatKeyPress(event) {
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
 }
 
-// 【修复】AI解读政策 - 传递完整上下文（从 enhanced_chat_functions.js）
+// 【修复】AI解读政策 - 传递完整上下文
 async function interpretPolicy() {
     if (!CONFIG.isConnected) {
         alert('AI解读功能在本地模式下不可用。请切换到在线模式。');
@@ -904,7 +986,7 @@ async function generateReport() {
     // 生成能力雷达图（包含AI分析）
     await generateAbilityChart();
     
-    // 显示学校推荐（增强版）
+    // 显示学校推荐（增强版）- 使用适配后的数据
     await showEnhancedSchoolRecommendations();
     
     // AI生成时间规划和政策提醒
@@ -941,7 +1023,7 @@ function collectAllData() {
     return userData;
 }
 
-// ========== 学校推荐核心函数（从 fixed_script_core.js）==========
+// ========== 学校推荐核心函数 ==========
 
 // 【新增】判断学生入学类型
 function determineEnrollmentType(userData) {
@@ -1035,7 +1117,7 @@ function 判断入学类型(userData) {
     return `${enrollmentType.category} - ${enrollmentType.description}`;
 }
 
-// 【新增】获取学生可选学校列表
+// 【修复】获取学生可选学校列表 - 使用适配后的数据结构
 function getAvailableSchools(userData) {
     const enrollmentInfo = determineEnrollmentType(userData);
     const availableSchools = {
@@ -1103,7 +1185,7 @@ function getAvailableSchools(userData) {
     return availableSchools;
 }
 
-// 【新增】计算学校匹配度
+// 【修复】计算学校匹配度 - 适配新数据结构
 function calculateSchoolMatch(school, userData) {
     let score = 60; // 基础分
     
@@ -1123,7 +1205,7 @@ function calculateSchoolMatch(school, userData) {
     
     // 2. 特长匹配 (15分)
     const 特长列表 = userData.学生特长 || [];
-    const 学校特色 = school.features || [];
+    const 学校特色 = school.features || school.special_classes || [];
     
     const 特长匹配数 = 特长列表.filter(t => 
         学校特色.some(f => f.includes(t))
@@ -1131,27 +1213,28 @@ function calculateSchoolMatch(school, userData) {
     
     score += Math.min(15, 特长匹配数 * 5);
     
-    // 3. 距离因素 (10分)
+    // 3. 距离因素 (10分) - 关键修复：使用统一的district字段
     const 同区 = school.district === userData.实际居住区;
     score += 同区 ? 10 : 5;
     
     // 4. 升学率 (15分)
-    const 升学率 = school.admissionRate || 0;
+    const 升学率 = school.admissionRate || school.graduation_rate || 0;
     score += Math.min(15, 升学率 / 10);
     
     return Math.round(score);
 }
 
-// 【新增】获取匹配原因
+// 【修复】获取匹配原因 - 适配新数据结构
 function getMatchReason(school, userData) {
     const reasons = [];
     
+    // 关键修复：使用统一的district字段
     if (school.district === userData.实际居住区) {
         reasons.push('本区学校');
     }
     
     const 特长匹配 = (userData.学生特长 || []).filter(t => 
-        (school.features || []).some(f => f.includes(t))
+        (school.features || school.special_classes || []).some(f => f.includes(t))
     );
     
     if (特长匹配.length > 0) {
@@ -1168,17 +1251,17 @@ function getMatchReason(school, userData) {
         }
     }
     
-    if (school.admissionRate >= 90) {
+    if (school.admissionRate >= 90 || school.graduation_rate >= 90) {
         reasons.push('升学率优秀');
     }
     
     return reasons.join(' + ') || '符合基本条件';
 }
 
-// 【新增】估算摇号概率
+// 【修复】估算摇号概率
 function estimateLotteryProbability(school, userData) {
     // 基于2024年历史数据估算
-    const 本区学生 = school.district === userData.实际居住区;
+    const 本区学生 = school.district === userData.实际居住区; // 关键修复：使用统一字段
     const 基础概率 = school.lotteryRate || 50;
     
     // 本区学生摇号概率通常高10-20%
@@ -1215,7 +1298,7 @@ function getAdjacentDistricts(district) {
     return adjacencyMap[district] || [];
 }
 
-// 【修复】增强版学校推荐 - 使用本地数据库
+// 【修复】增强版学校推荐 - 使用适配后的数据结构
 async function showEnhancedSchoolRecommendations() {
     const recommendationElement = document.getElementById('schoolRecommendation');
     if (!recommendationElement) return;
@@ -1225,13 +1308,14 @@ async function showEnhancedSchoolRecommendations() {
         <div class="ai-loading">
             <div class="ai-loading-spinner"></div>
             <p>正在基于您的完整信息和本地学校数据库进行精准匹配...</p>
+            <p style="font-size: 12px; color: #666;">数据已统一适配，使用标准字段匹配</p>
         </div>
     `;
     
     try {
         const userData = collectUserDataForAI();
         
-        // 1. 从本地数据库获取可选学校
+        // 1. 从本地数据库获取可选学校（使用适配后的数据）
         const availableSchools = getAvailableSchools(userData);
         const enrollmentType = availableSchools.enrollmentType;
         
@@ -1274,7 +1358,7 @@ async function showEnhancedSchoolRecommendations() {
                         <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">${index + 1}</td>
                         <td style="padding: 10px; border: 1px solid #e2e8f0;"><strong>${school.name}</strong></td>
                         <td style="padding: 10px; border: 1px solid #e2e8f0;">${school.district || enrollmentType.publicDistrict}</td>
-                        <td style="padding: 10px; border: 1px solid #e2e8f0;">${school.学区 || '全区统筹'}</td>
+                        <td style="padding: 10px; border: 1px solid #e2e8f0;">${(school.学区 || []).join('、') || '全区统筹'}</td>
                         <td style="padding: 10px; border: 1px solid #e2e8f0; text-align: center;">
                             <span style="background: #10b981; color: white; padding: 3px 10px; border-radius: 12px; font-size: 12px;">
                                 ${school.admissionProbability}
@@ -1375,13 +1459,14 @@ async function showEnhancedSchoolRecommendations() {
                 <h5 style="margin: 0 0 10px 0;">📚 数据来源说明</h5>
                 <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #4b5563;">
                     <li>学校信息来源：西安市教育局2025年官方公布名单</li>
+                    <li>数据适配：已统一处理学校数据结构，确保字段匹配</li>
                     <li>推荐逻辑：严格按照户籍类/随迁类入学政策</li>
                     <li>匹配算法：综合考虑户籍、居住、学费、特长、距离等因素</li>
                     <li>摇号概率：基于2024年历史数据估算，仅供参考</li>
                 </ul>
                 <div style="margin-top: 15px;">
-                    <span class="trust-badge trust-verified">✅ 数据准确</span>
-                    基于本地学校数据库 · 严格遵循2025年招生政策
+                    <span class="trust-badge trust-verified">✅ 数据适配完成</span>
+                    基于统一数据结构 · 严格遵循2025年招生政策
                 </div>
             </div>
         `;
@@ -1785,7 +1870,7 @@ function displayStaticTimelineAndPolicy() {
 
 // ========== PDF生成功能（修复乱码）==========
 
-// 【修复】PDF生成 - 使用纯文本避免乱码（从 fixed_pdf_generation.js）
+// 【修复】PDF生成 - 使用纯文本避免乱码
 async function generateFullPdfReport() {
     try {
         // 显示加载提示
@@ -1842,7 +1927,7 @@ async function generateFullPdfReport() {
     }
 }
 
-// 【新增】生成增强版文本报告（从 fixed_pdf_generation.js）
+// 【新增】生成增强版文本报告
 function generateEnhancedTextReport(userData, userFullInfo) {
     const enrollmentType = determineEnrollmentType(userData);
     const availableSchools = getAvailableSchools(userData);
@@ -1850,11 +1935,11 @@ function generateEnhancedTextReport(userData, userFullInfo) {
     let report = '';
     report += '='.repeat(70) + '\n';
     report += '                  西安市小升初智能评估报告\n';
-    report += '                     2025增强版\n';
+    report += '                     2025增强版（数据结构已适配）\n';
     report += '='.repeat(70) + '\n\n';
     
     report += `报告生成时间：${new Date().toLocaleString('zh-CN')}\n`;
-    report += `数据来源：西安市教育局2025年官方数据 + 本地学校数据库\n\n`;
+    report += `数据来源：西安市教育局2025年官方数据 + 本地学校数据库（已适配）\n\n`;
     
     // 第一部分：学生基本信息
     report += '一、学生基本信息\n';
@@ -1904,7 +1989,7 @@ function generateEnhancedTextReport(userData, userFullInfo) {
     if (userData.能力评估['维度6']) report += `学科倾向：${userData.能力评估['维度6']}分\n`;
     
     // 第五部分：学校推荐
-    report += '\n五、学校推荐列表\n';
+    report += '\n五、学校推荐列表（使用适配后的数据结构）\n';
     report += '-'.repeat(50) + '\n';
     
     // 公办学校
@@ -1913,7 +1998,7 @@ function generateEnhancedTextReport(userData, userFullInfo) {
         availableSchools.public.forEach((school, index) => {
             report += `${index + 1}. ${school.name}\n`;
             report += `   所在区：${school.district || enrollmentType.publicDistrict}\n`;
-            report += `   对口学区：${school.学区 || '全区统筹'}\n`;
+            report += `   对口学区：${(school.学区 || []).join('、') || '全区统筹'}\n`;
             report += `   入学概率：${school.admissionProbability}\n`;
             report += `   匹配说明：${school.matchReason}\n\n`;
         });
@@ -1948,11 +2033,12 @@ function generateEnhancedTextReport(userData, userFullInfo) {
     report += '• 建议民办志愿填报策略：2冲刺+2稳妥+1保底\n';
     report += '• 请在报名前确保所有证明材料齐全\n';
     report += '• 关注西安市教育局官网获取最新信息\n';
+    report += '• 数据结构已适配：确保本地算法能正确匹配学校\n';
     
     report += '\n' + '='.repeat(70) + '\n';
     report += '报告结束\n';
-    report += '数据来源：西安市教育局官方网站 + 本地学校数据库\n';
-    report += '生成系统：西安小升初智能评估系统 2025增强版\n';
+    report += '数据来源：西安市教育局官方网站 + 本地学校数据库（已适配）\n';
+    report += '生成系统：西安小升初智能评估系统 2025增强版（数据结构适配版）\n';
     report += '='.repeat(70) + '\n';
     
     return report;
@@ -2005,7 +2091,7 @@ function exportReportJSON() {
         const completeData = {
             // 基本信息
             报告生成时间: new Date().toLocaleString('zh-CN'),
-            报告版本: '2025增强版',
+            报告版本: '2025增强版（数据结构适配版）',
             
             // 学生基本信息
             学生信息: collectUserDataForAI(),
@@ -2017,11 +2103,18 @@ function exportReportJSON() {
                 详细分析: 判断入学类型(collectUserDataForAI())
             },
             
+            // 学校数据结构适配信息
+            数据结构适配: {
+                状态: '已启用',
+                适配函数: 'adaptSchoolStructure',
+                统一字段: ['district', 'tuition', 'admissionRate', 'features', '学区']
+            },
+            
             // 系统配置信息
             系统配置: {
                 AI模式: CONFIG.isConnected ? '在线模式' : '本地模式',
                 AI提供商: CONFIG.provider || '未配置',
-                数据来源: '西安市教育局2025年招生政策'
+                数据来源: '西安市教育局2025年招生政策（已适配）'
             }
         };
         
@@ -2036,7 +2129,7 @@ function exportReportJSON() {
         linkElement.setAttribute('download', exportFileDefaultName);
         linkElement.click();
         
-        alert('✅ JSON数据导出成功!\n\n导出内容包括:\n- 学生完整信息\n- 6维度能力评估\n- 户籍居住信息\n- 房产信息\n- 入学资格评估\n- 民办意向与预算');
+        alert('✅ JSON数据导出成功!\n\n导出内容包括:\n- 学生完整信息\n- 6维度能力评估\n- 户籍居住信息\n- 房产信息\n- 入学资格评估\n- 民办意向与预算\n- 数据结构适配信息');
         
     } catch (error) {
         console.error('JSON导出失败:', error);
@@ -2390,7 +2483,7 @@ async function initializeApp() {
     // 恢复配置
     restoreConfig();
     
-    // 加载学校数据
+    // 加载学校数据（包含数据适配）
     await loadAllDistrictsData();
     
     // 初始化步骤显示
@@ -2406,7 +2499,7 @@ async function initializeApp() {
     // 为聊天窗口添加拖动功能
     setupChatDrag();
         
-    console.log('应用初始化完成，学校数据已加载');
+    console.log('应用初始化完成，学校数据已加载并适配');
 }
 
 // DOM加载完成后初始化
@@ -2441,6 +2534,62 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// ========== 新增诊断函数 ==========
+// 【新增】诊断学校数据结构问题
+function diagnoseSchoolStructure() {
+    console.log('=== 学校数据结构诊断 ===');
+    
+    const districts = Object.keys(SCHOOLS_DATA || {});
+    console.log(`已加载区县: ${districts.length}个`);
+    
+    districts.forEach(district => {
+        const districtData = SCHOOLS_DATA[district];
+        if (districtData && districtData.schools && districtData.schools.length > 0) {
+            const firstSchool = districtData.schools[0];
+            console.log(`\n${district} - 第一所学校字段:`);
+            console.log('- name:', firstSchool.name);
+            console.log('- type:', firstSchool.type);
+            console.log('- district:', firstSchool.district);
+            console.log('- newcity:', firstSchool.newcity);
+            console.log('- 学区:', firstSchool.学区);
+            console.log('- features:', firstSchool.features);
+            console.log('- tuition:', firstSchool.tuition);
+            console.log('- admissionRate:', firstSchool.admissionRate);
+            
+            // 检查是否已适配
+            const isAdapted = firstSchool.district && firstSchool.tuition !== undefined;
+            console.log('- 已适配:', isAdapted ? '✅' : '❌');
+        } else {
+            console.log(`\n${district} - 无学校数据`);
+        }
+    });
+    
+    console.log('\n=== 诊断完成 ===');
+}
+
+// 【新增】测试数据结构适配
+function testDataAdaptation() {
+    console.log('=== 测试数据结构适配 ===');
+    
+    // 测试适配函数
+    const testSchool = {
+        name: '测试学校',
+        type: '公办',
+        level: '公办初中',
+        newcity: '测试区',
+        学区: '测试街道',
+        features: ['特色班']
+    };
+    
+    const adapted = adaptSchoolStructure(testSchool, '测试区');
+    console.log('测试学校适配结果:', adapted);
+    console.log('district字段:', adapted.district);
+    console.log('tuition字段:', adapted.tuition);
+    console.log('学区字段类型:', Array.isArray(adapted.学区) ? '数组' : '其他');
+    
+    return adapted;
+}
+
 // ========== 导出全局函数 ==========
 window.showStep = showStep;
 window.toggleChat = toggleChat;
@@ -2471,3 +2620,7 @@ window.getAvailableSchools = getAvailableSchools;
 window.determineEnrollmentType = determineEnrollmentType;
 window.callAIAPIWithFullContext = callAIAPIWithFullContext;
 window.formatAIResponse = formatAIResponse;
+window.adaptSchoolStructure = adaptSchoolStructure;  // 新增导出
+window.adaptSchoolsBatch = adaptSchoolsBatch;        // 新增导出
+window.diagnoseSchoolStructure = diagnoseSchoolStructure; // 新增导出
+window.testDataAdaptation = testDataAdaptation;      // 新增导出
