@@ -214,7 +214,6 @@ const DOM_CONFIG = {
     scoreRadioNames: ['score1', 'score2', 'score3', 'score4', 'score5', 'score6'],
     
     // 民办意向
-    privateWantsNames: ['privateWants', 'privateIntent'],
     considerPrivateIds: ['considerPrivate', '是否考虑民办'],
     crossDistrictIds: ['crossDistrictPreference', '可接受的跨区范围'],
     budgetIds: ['budget', 'privateBudget', '民办学校预算'],
@@ -224,7 +223,6 @@ const DOM_CONFIG = {
     academicGoalsIds: ['academicGoals', '学业规划'],
     
     // 特长与理念
-    wantsFeaturesNames: ['specialty', 'features', 'preferences'],
     specialtyCheckNames: ['specialty', '学生特长', 'strength'],
     philosophyCheckNames: ['educationConcept', '教育理念偏好', 'philosophy'],
     
@@ -337,7 +335,6 @@ const studentProfile = {
     grade: '',
     
     // 户籍信息
-    category: '', // '户籍类' or '随迁类'
     hukouType: '', // '户籍类' or '随迁类'
     hukouDistrict: '',
     hukouStreet: '',
@@ -363,7 +360,6 @@ const studentProfile = {
     abilityScores: {},
     
     // 民办意向
-    privateIntent: [], // 如 ["升学率","费用低","有住宿"]
     considerPrivate: '',
     crossDistrictPreference: '',
     budget: null,
@@ -373,19 +369,15 @@ const studentProfile = {
     academicGoals: '',
     
     // 特长与理念
-    features: [], // 特色班、特长等
     specialties: [],
     philosophies: [],
     
     // 其他偏好
     maxDistanceKm: null,
-    boardingPref: '', // '需要'|'不需要'|'不限'
+    boardingPref: '',
     
     // 时间戳
-    timestamp: null,
-    
-    // AI分析结果占位符
-    aiAnalysis: null
+    timestamp: null
 };
 
 // ========== 数据适配层 - 统一学校数据结构 ==========
@@ -458,7 +450,7 @@ function adaptSchoolsBatch(schools, districtName) {
         .filter(school => school !== null);
 }
 
-// 【新增】智能学校数据标准化器（兼容增强版）
+// 【新增】智能学校数据标准化器
 function normalizeSchool(raw, sourceMeta = {}) {
     if (!raw || typeof raw !== 'object') return null;
 
@@ -736,7 +728,7 @@ function collectUserDataForAI() {
     return userData;
 }
 
-// 【新增】智能收集学生数据（增强版）
+// 【新增】智能收集学生数据
 function collectStudentProfile() {
     // 使用智能DOM选择器收集数据
     studentProfile.name = getSingleValue(DOM_CONFIG.studentNameIds) || '';
@@ -745,7 +737,6 @@ function collectStudentProfile() {
     studentProfile.grade = getSingleValue([], DOM_CONFIG.currentGradeNames, '');
     
     // 户籍信息
-    studentProfile.category = getSingleValue([], DOM_CONFIG.hukouTypeNames, '户籍类');
     studentProfile.hukouType = getSingleValue([], DOM_CONFIG.hukouTypeNames, '户籍类');
     studentProfile.hukouDistrict = getSingleValue(DOM_CONFIG.householdDistrictIds) || '';
     studentProfile.hukouStreet = getSingleValue(DOM_CONFIG.householdStreetIds) || '';
@@ -774,7 +765,6 @@ function collectStudentProfile() {
     }
     
     // 民办意向
-    studentProfile.privateIntent = getCheckedValues(DOM_CONFIG.privateWantsNames) || [];
     studentProfile.considerPrivate = getSingleValue(DOM_CONFIG.considerPrivateIds) || '';
     studentProfile.crossDistrictPreference = getSingleValue(DOM_CONFIG.crossDistrictIds) || '';
     studentProfile.budget = getNumberValue(DOM_CONFIG.budgetIds, null);
@@ -784,7 +774,6 @@ function collectStudentProfile() {
     studentProfile.academicGoals = getSingleValue(DOM_CONFIG.academicGoalsIds) || '';
     
     // 特长与理念
-    studentProfile.features = getCheckedValues(DOM_CONFIG.wantsFeaturesNames) || [];
     studentProfile.specialties = getCheckedValues(DOM_CONFIG.specialtyCheckNames);
     studentProfile.philosophies = getCheckedValues(DOM_CONFIG.philosophyCheckNames);
     
@@ -1565,10 +1554,102 @@ function collectAllData() {
 
 // ========== 学校推荐核心函数 ==========
 
-// 【新增】判断学生是否为户籍类
+// 【新增】判断学生入学类型
+function determineEnrollmentType(userData) {
+    const 户籍区 = userData.户籍所在区 || '';
+    const 居住区 = userData.实际居住区 || '';
+    const 户籍性质 = userData.居住性质 || '';
+    
+    // 随迁类判断
+    if (户籍区 === '外地户籍' || 户籍区.includes('外地')) {
+        return {
+            type: 'migrant', // 随迁类
+            category: '随迁子女',
+            priority: 4,
+            description: '随迁子女需提供居住证，由居住证所在区统筹安排'
+        };
+    }
+    
+    // 户籍类 - 房户一致
+    if (户籍区 === 居住区 && (户籍性质 === '自有房产' || userData.房产证类型?.includes('自有'))) {
+        return {
+            type: 'hukou_match',
+            category: '户籍类(房户一致)',
+            priority: 1,
+            description: '户籍与房产地址一致，享有最优先入学资格',
+            canApplyPublic: true,
+            publicDistrict: 户籍区
+        };
+    }
+    
+    // 户籍类 - 房户不一致
+    if (户籍区 !== 居住区 && 户籍区 && 居住区) {
+        return {
+            type: 'hukou_mismatch',
+            category: '户籍类(房户不一致)',
+            priority: 2,
+            description: '户籍与房产地址不在同一区域，排序在房户一致之后',
+            canApplyPublic: true,
+            publicDistrict: 户籍区 // 公办学校只能报户籍所在区
+        };
+    }
+    
+    // 集体户
+    if (户籍区.includes('集体户')) {
+        return {
+            type: 'collective',
+            category: '集体户类',
+            priority: 3,
+            description: '集体户口，由教育局统筹安排入学',
+            canApplyPublic: true,
+            publicDistrict: 户籍区.replace('集体户', '').trim()
+        };
+    }
+    
+    // 租房居住
+    if (户籍性质 === '租房') {
+        return {
+            type: 'rent',
+            category: '户籍类(租房居住)',
+            priority: 4,
+            description: '租房居住，排序在自有房产之后',
+            canApplyPublic: true,
+            publicDistrict: 户籍区
+        };
+    }
+    
+    // 默认
+    return {
+        type: 'unknown',
+        category: '待确认(请补充房产和居住信息)',
+        priority: 5,
+        description: '请完善户籍、居住和房产信息以确定入学顺位',
+        canApplyPublic: false
+    };
+}
+
+// 计算入学顺位
+function calculateAdmissionPriority(userData) {
+    const enrollmentType = determineEnrollmentType(userData);
+    return `第${enrollmentType.priority}顺位（${enrollmentType.category}）`;
+}
+
+// 获取顺位理由
+function getPriorityReason(userData) {
+    const enrollmentType = determineEnrollmentType(userData);
+    return enrollmentType.description;
+}
+
+// 辅助函数：判断入学类型（兼容旧版本）
+function 判断入学类型(userData) {
+    const enrollmentType = determineEnrollmentType(userData);
+    return `${enrollmentType.category} - ${enrollmentType.description}`;
+}
+
+// 【新增】检查学生是否为户籍类
 function isHukouStudent(profile) {
-    if (!profile || !profile.category) return false;
-    const s = profile.category.toLowerCase();
+    if (!profile || !profile.hukouType) return false;
+    const s = profile.hukouType.toLowerCase();
     return s.includes('户') || s.includes('hukou') || s.includes('本地') || s.includes('户籍');
 }
 
@@ -1581,8 +1662,8 @@ function computeMatchScore(school, profile) {
     if (profile.considerPrivate === '否' && school.type === '公办') score += 10;
 
     // 特色匹配
-    if (Array.isArray(profile.features) && profile.features.length && Array.isArray(school.features)) {
-        const matched = profile.features.filter(f => {
+    if (Array.isArray(profile.specialties) && profile.specialties.length && Array.isArray(school.features)) {
+        const matched = profile.specialties.filter(f => {
             return school.features.some(sf => (sf || '').toLowerCase().includes((f || '').toLowerCase()));
         });
         score += Math.min(5 * matched.length, 25);
@@ -1691,8 +1772,8 @@ function initialFilterByProfile(allSchools, profile) {
 function filterPrivateByPreferences(privateList, profile) {
     if (!Array.isArray(privateList) || privateList.length === 0) return [];
 
-    // 从profile.features收集偏好标记
-    const featuresWanted = (profile.features || []).map(s => s.toLowerCase());
+    // 从profile.specialties收集偏好标记
+    const featuresWanted = (profile.specialties || []).map(s => s.toLowerCase());
 
     // 执行筛选；我们不会过于严格 — 保留候选池，然后进行排名
     const filtered = privateList.filter(school => {
@@ -1781,7 +1862,7 @@ function aggregateAndRank(candidateMap, profile, N = 10) {
     return final.slice(0, N).map(f => ({ ...f.school, matchScore: f.score }));
 }
 
-// 【新增】主要推荐管道（增强版）
+// 【新增】主要推荐管道
 async function runRecommendationPipeline() {
     // 1. 通过DOM助手收集用户输入
     const profile = collectStudentProfile();
@@ -1816,98 +1897,6 @@ async function runRecommendationPipeline() {
 
     // 8. 返回供编程使用
     return { profile, finalList, analysisText };
-}
-
-// 【新增】判断学生入学类型
-function determineEnrollmentType(userData) {
-    const 户籍区 = userData.户籍所在区 || '';
-    const 居住区 = userData.实际居住区 || '';
-    const 户籍性质 = userData.居住性质 || '';
-    
-    // 随迁类判断
-    if (户籍区 === '外地户籍' || 户籍区.includes('外地')) {
-        return {
-            type: 'migrant', // 随迁类
-            category: '随迁子女',
-            priority: 4,
-            description: '随迁子女需提供居住证，由居住证所在区统筹安排'
-        };
-    }
-    
-    // 户籍类 - 房户一致
-    if (户籍区 === 居住区 && (户籍性质 === '自有房产' || userData.房产证类型?.includes('自有'))) {
-        return {
-            type: 'hukou_match',
-            category: '户籍类(房户一致)',
-            priority: 1,
-            description: '户籍与房产地址一致，享有最优先入学资格',
-            canApplyPublic: true,
-            publicDistrict: 户籍区
-        };
-    }
-    
-    // 户籍类 - 房户不一致
-    if (户籍区 !== 居住区 && 户籍区 && 居住区) {
-        return {
-            type: 'hukou_mismatch',
-            category: '户籍类(房户不一致)',
-            priority: 2,
-            description: '户籍与房产地址不在同一区域，排序在房户一致之后',
-            canApplyPublic: true,
-            publicDistrict: 户籍区 // 公办学校只能报户籍所在区
-        };
-    }
-    
-    // 集体户
-    if (户籍区.includes('集体户')) {
-        return {
-            type: 'collective',
-            category: '集体户类',
-            priority: 3,
-            description: '集体户口，由教育局统筹安排入学',
-            canApplyPublic: true,
-            publicDistrict: 户籍区.replace('集体户', '').trim()
-        };
-    }
-    
-    // 租房居住
-    if (户籍性质 === '租房') {
-        return {
-            type: 'rent',
-            category: '户籍类(租房居住)',
-            priority: 4,
-            description: '租房居住，排序在自有房产之后',
-            canApplyPublic: true,
-            publicDistrict: 户籍区
-        };
-    }
-    
-    // 默认
-    return {
-        type: 'unknown',
-        category: '待确认(请补充房产和居住信息)',
-        priority: 5,
-        description: '请完善户籍、居住和房产信息以确定入学顺位',
-        canApplyPublic: false
-    };
-}
-
-// 计算入学顺位
-function calculateAdmissionPriority(userData) {
-    const enrollmentType = determineEnrollmentType(userData);
-    return `第${enrollmentType.priority}顺位（${enrollmentType.category}）`;
-}
-
-// 获取顺位理由
-function getPriorityReason(userData) {
-    const enrollmentType = determineEnrollmentType(userData);
-    return enrollmentType.description;
-}
-
-// 辅助函数：判断入学类型（兼容旧版本）
-function 判断入学类型(userData) {
-    const enrollmentType = determineEnrollmentType(userData);
-    return `${enrollmentType.category} - ${enrollmentType.description}`;
 }
 
 // 【新增】在页面渲染推荐结果
@@ -2758,7 +2747,7 @@ function exportReportJSON() {
         const completeData = {
             // 基本信息
             报告生成时间: new Date().toLocaleString('zh-CN'),
-            报告版本: '2025增强版（智能推荐版）',
+            报告版本: '2025增强版（数据结构适配版）',
             
             // 学生基本信息
             学生信息: collectUserDataForAI(),
@@ -2770,11 +2759,18 @@ function exportReportJSON() {
                 详细分析: 判断入学类型(collectUserDataForAI())
             },
             
+            // 学校数据结构适配信息
+            数据结构适配: {
+                状态: '已启用',
+                适配函数: 'adaptSchoolStructure',
+                统一字段: ['district', 'tuition', 'admissionRate', 'features', '学区']
+            },
+            
             // 系统配置信息
             系统配置: {
                 AI模式: CONFIG.isConnected ? '在线模式' : '本地模式',
                 AI提供商: CONFIG.provider || '未配置',
-                数据来源: '西安市教育局2025年招生政策'
+                数据来源: '西安市教育局2025年招生政策（已适配）'
             }
         };
         
@@ -2789,7 +2785,7 @@ function exportReportJSON() {
         linkElement.setAttribute('download', exportFileDefaultName);
         linkElement.click();
         
-        alert('✅ JSON数据导出成功!\n\n导出内容包括:\n- 学生完整信息\n- 6维度能力评估\n- 户籍居住信息\n- 房产信息\n- 入学资格评估\n- 民办意向与预算');
+        alert('✅ JSON数据导出成功!\n\n导出内容包括:\n- 学生完整信息\n- 6维度能力评估\n- 户籍居住信息\n- 房产信息\n- 入学资格评估\n- 民办意向与预算\n- 数据结构适配信息');
         
     } catch (error) {
         console.error('JSON导出失败:', error);
