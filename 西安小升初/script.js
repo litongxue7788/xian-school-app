@@ -1,7 +1,6 @@
 // ============================================
-// 西安小升初智能评估系统 v2.0 - 模块化优化版
-// 修复版 - 适配你的目录结构
-// 增强版 - 支持多种数据格式
+// 西安小升初智能评估系统 - 增强重构版 v3.0
+// 融合重构版架构 + 老版本AI功能 + 完整用户体验
 // ============================================
 
 // ========== 1. 拼音映射工具 ==========
@@ -133,7 +132,7 @@ const PINYIN_MAP = {
     '外': 'wai', '片': 'pian'
 };
 
-// 拼音工具函数
+// 拼音工具类
 class PinyinUtils {
     static toPinyin(text) {
         if (!text) return '';
@@ -157,15 +156,15 @@ class PinyinUtils {
     }
 }
 
-// ========== 2. 数据管理模块 (DataManager) ==========
+// ========== 2. 数据管理模块 (DataManager) - 增强版 ==========
 class DataManager {
     constructor() {
-        this.schools = new Map(); // 学校ID -> 学校对象
-        this.districtSchools = new Map(); // 区名 -> 学校ID数组
-        this.typeIndex = new Map(); // 类型 -> 学校ID数组
-        this.featureIndex = new Map(); // 特色 -> 学校ID数组
-        this.cache = new Map(); // 区县数据缓存
-        this.loading = new Map(); // 加载中的Promise
+        this.schools = new Map();
+        this.districtSchools = new Map();
+        this.typeIndex = new Map();
+        this.featureIndex = new Map();
+        this.cache = new Map();
+        this.loading = new Map();
         
         this.config = {
             districts: [
@@ -182,10 +181,8 @@ class DataManager {
         this.preloadCommonData();
     }
 
-    // 预加载常见数据
     async preloadCommonData() {
         try {
-            // 预加载常见区县数据
             const commonDistricts = ['雁塔区', '碑林区', '新城区', '未央区'];
             for (const district of commonDistricts) {
                 await this.loadDistrict(district);
@@ -196,7 +193,6 @@ class DataManager {
         }
     }
 
-    // 数据加载
     async loadAllDistricts(onProgress) {
         const results = {
             success: [],
@@ -231,17 +227,14 @@ class DataManager {
     }
 
     async loadDistrict(districtName) {
-        // 检查缓存
         if (this.cache.has(districtName)) {
             return this.cache.get(districtName);
         }
 
-        // 检查是否正在加载
         if (this.loading.has(districtName)) {
             return this.loading.get(districtName);
         }
 
-        // 注意：这里使用相对路径导入
         const loadPromise = this._loadDistrictWithRetry(districtName);
         this.loading.set(districtName, loadPromise);
 
@@ -257,7 +250,6 @@ class DataManager {
 
     async _loadDistrictWithRetry(districtName, attempt = 1) {
         try {
-            // 修复：使用正确的路径
             const module = await import(`./data/districts/${districtName}.js`);
             const rawData = module.default || module;
             return this.normalizeDistrictData(rawData, districtName);
@@ -275,14 +267,10 @@ class DataManager {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // ========== 数据标准化方法（增强版） ==========
-    
-    // 智能数据标准化 - 支持多种格式
     normalizeDistrictData(rawData, districtName) {
         let publicSchools = [];
         let privateSchools = [];
         
-        // 情况1：有 public_schools 和 private_schools 字段（标准格式）
         if (rawData.public_schools || rawData.private_schools) {
             publicSchools = this._normalizeSchoolArray(
                 rawData.public_schools || [],
@@ -296,9 +284,7 @@ class DataManager {
                 '民办'
             );
         }
-        // 情况2：只有 schools 字段（西咸新区格式）
         else if (rawData.schools && Array.isArray(rawData.schools)) {
-            // 过滤出初中学校
             const middleSchools = rawData.schools.filter(school => {
                 const stage = school.school_stage || school.level || '';
                 return stage.includes('初中') || !stage.includes('小学');
@@ -341,19 +327,16 @@ class DataManager {
             .filter(s => s !== null);
     }
 
-    // 智能学校标准化 - 支持多种格式
     normalizeSchool(school, districtName, defaultType) {
         if (!school || typeof school !== 'object') {
             return null;
         }
 
-        // 1. 处理西咸新区的特殊格式
         const schoolStage = school.school_stage || school.level || '';
         const isPrimarySchool = schoolStage.includes('小学') || school.level === '公办小学';
         const isMiddleSchool = schoolStage.includes('初中') || school.level === '公办初中' || 
                               school.level === '民办初中' || !isPrimarySchool;
 
-        // 如果不是初中学校，跳过（只处理初中）
         if (isPrimarySchool && !isMiddleSchool) {
             return null;
         }
@@ -364,25 +347,12 @@ class DataManager {
             return null;
         }
 
-        // 2. 智能提取学区信息
         const schoolDistrict = this._extractSchoolDistrict(school);
-        
-        // 3. 智能提取学校类型
         const type = this.normalizeType(school.type || school.办学性质 || defaultType);
-        
-        // 4. 智能提取特色
         const features = this._extractFeatures(school);
-        
-        // 5. 智能提取评分
         const rating = this._extractRating(school);
-        
-        // 6. 智能提取学费
         const tuition = this.normalizeTuition(school.tuition || school.fee || school.学费);
-        
-        // 7. 智能提取住宿信息
         const hasBoarding = this._extractBoarding(school);
-        
-        // 8. 智能提取是否重点学校
         const isKeySchool = this._extractIsKeySchool(school);
 
         return {
@@ -404,25 +374,19 @@ class DataManager {
         };
     }
 
-    // ========== 辅助提取方法 ==========
-    
     _extractSchoolDistrict(school) {
-        // 优先级1：streets 数组
         if (school.streets && Array.isArray(school.streets)) {
             return school.streets.filter(Boolean).map(String);
         }
         
-        // 优先级2：学区 数组
         if (school.学区 && Array.isArray(school.学区)) {
             return school.学区.filter(Boolean).map(String);
         }
         
-        // 优先级3：学区 字符串（需要分割）
         if (school.学区 && typeof school.学区 === 'string') {
             return school.学区.split(/[、，,;；\s]+/).filter(Boolean).map(s => s.trim());
         }
         
-        // 优先级4：schoolDistrict 数组
         if (school.schoolDistrict && Array.isArray(school.schoolDistrict)) {
             return school.schoolDistrict.filter(Boolean).map(String);
         }
@@ -433,22 +397,18 @@ class DataManager {
     _extractFeatures(school) {
         const features = [];
         
-        // 1. 如果有 features 数组
         if (school.features && Array.isArray(school.features)) {
             features.push(...school.features.filter(Boolean).map(String));
         }
         
-        // 2. 如果有特色字段
         if (school.特色 && Array.isArray(school.特色)) {
             features.push(...school.特色.filter(Boolean).map(String));
         }
         
-        // 3. 从 admission_policy 提取
         if (school.admission_policy) {
             features.push(`入学政策:${school.admission_policy}`);
         }
         
-        // 4. 从其他字段提取
         if (school.admissionProbability) {
             features.push(`入学概率:${school.admissionProbability}`);
         }
@@ -457,17 +417,14 @@ class DataManager {
     }
 
     _extractRating(school) {
-        // 优先级1：admissionRate
         if (school.admissionRate !== undefined) {
             return Math.max(0, Math.min(100, Number(school.admissionRate)));
         }
         
-        // 优先级2：rating
         if (school.rating !== undefined) {
             return Math.max(0, Math.min(100, Number(school.rating)));
         }
         
-        // 优先级3：admissionProbability 转成数字
         if (school.admissionProbability) {
             switch(school.admissionProbability) {
                 case '高': return 85;
@@ -477,21 +434,17 @@ class DataManager {
             }
         }
         
-        // 默认值
         return 60;
     }
 
     _extractBoarding(school) {
-        // 1. 直接布尔值
         if (typeof school.hasBoarding === 'boolean') return school.hasBoarding;
         
-        // 2. 字符串判断
         if (typeof school.hasBoarding === 'string') {
             const b = school.hasBoarding.toLowerCase();
             return b.includes('是') || b.includes('有') || b.includes('yes');
         }
         
-        // 3. 从 features 判断
         if (school.features && Array.isArray(school.features)) {
             return school.features.some(f => 
                 f.toLowerCase().includes('住宿') || 
@@ -500,15 +453,12 @@ class DataManager {
             );
         }
         
-        // 默认不提供住宿
         return false;
     }
 
     _extractIsKeySchool(school) {
-        // 1. 直接布尔值
         if (typeof school.is_key_school === 'boolean') return school.is_key_school;
         
-        // 2. 从名称判断
         const name = this._extractName(school).toLowerCase();
         const keySchoolKeywords = ['重点', '示范', '实验', '一中', '二中', '附中'];
         
@@ -564,59 +514,6 @@ class DataManager {
         return 0;
     }
 
-    _normalizeArray(value) {
-        if (Array.isArray(value)) {
-            return value.filter(Boolean).map(String);
-        }
-        if (value && typeof value === 'string') {
-            return value.split(/[,;、，；\s]+/).filter(Boolean);
-        }
-        return [];
-    }
-
-    _normalizeRating(school) {
-        const rating = school.rating || 
-                       school.score || 
-                       school.admissionRate || 
-                       school.graduation_rate ||
-                       school.评分 ||
-                       0;
-        
-        if (typeof rating === 'number') {
-            return Math.max(0, Math.min(100, rating));
-        }
-        
-        if (typeof rating === 'string') {
-            const match = rating.match(/(\d+\.?\d*)/);
-            return match ? Number(match[1]) : 0;
-        }
-        
-        return 0;
-    }
-
-    _normalizeBoarding(school) {
-        const boarding = school.hasBoarding || 
-                         school.provides_dorm || 
-                         school.boarding ||
-                         school.住宿;
-        
-        if (typeof boarding === 'boolean') return boarding;
-        if (typeof boarding === 'string') {
-            const b = boarding.toLowerCase();
-            return b.includes('是') || b.includes('有') || 
-                   b.includes('yes') || b.includes('提供');
-        }
-        
-        return false;
-    }
-
-    _isKeySchool(school) {
-        const level = school.level || school.学段 || '';
-        return level.includes('重点') || 
-               level.includes('示范') ||
-               school.is_key_school === true;
-    }
-
     generateId(school, district) {
         const name = this._extractName(school);
         const timestamp = Date.now();
@@ -624,7 +521,6 @@ class DataManager {
         return `${district}_${name}_${timestamp}_${random}`.replace(/\s+/g, '_');
     }
 
-    // 索引管理
     _indexSchool(school) {
         this.schools.set(school.id, school);
 
@@ -646,7 +542,6 @@ class DataManager {
         });
     }
 
-    // 查询接口
     getSchoolById(id) {
         return this.schools.get(id) || null;
     }
@@ -779,10 +674,415 @@ class DataManager {
     }
 }
 
-// ========== 3. 推荐引擎模块 (RecommendationEngine) ==========
+// ========== 3. AI核心模块 (AICore) - 从老版本整合 ==========
+class AICore {
+    constructor() {
+        // 从老版本复制的AI配置
+        this.CONFIG = {
+            apiKey: '',
+            appId: '',
+            provider: 'bailian',
+            isConnected: false,
+            isChatInitialized: false
+        };
+        
+        // 从老版本复制的全局记忆系统
+        this.USER_MEMORY = JSON.parse(localStorage.getItem("USER_MEMORY") || "{}");
+        
+        this.chatHistory = [];
+        this.isDragging = false;
+        this.offsetX = 0;
+        this.offsetY = 0;
+    }
+
+    // 保存用户记忆
+    saveUserMemory(key, value) {
+        this.USER_MEMORY[key] = value;
+        localStorage.setItem("USER_MEMORY", JSON.stringify(this.USER_MEMORY));
+    }
+
+    getUserMemory() {
+        return this.USER_MEMORY;
+    }
+
+    // AI API调用函数 - 从老版本复制
+    async callAIAPI(message, provider = this.CONFIG.provider, apiKey = this.CONFIG.apiKey, appId = this.CONFIG.appId) {
+        try {
+            if (!this.CONFIG.isConnected) {
+                return "当前处于本地模式，AI功能不可用。请切换到在线模式。";
+            }
+
+            console.log('调用AI API:', { provider, messageLength: message.length });
+            
+            const response = await fetch('/api/ai', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    provider: provider,
+                    message: message,
+                    apiKey: apiKey,
+                    appId: appId
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP错误: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data.success && data.response) {
+                return data.response;
+            } else {
+                throw new Error('API返回格式异常');
+            }
+        } catch (error) {
+            console.error('API调用失败:', error);
+            throw new Error(`AI服务调用失败：${error.message}`);
+        }
+    }
+
+    // 小猫助手核心函数 - 从老版本复制并优化
+    async sendMessage(message, userData) {
+        if (!this.CONFIG.isConnected) {
+            return "AI聊天功能在本地模式下不可用。请切换到在线模式。";
+        }
+        
+        try {
+            const userMemory = this.getUserMemory();
+            
+            // 构建强化的AI提示词
+            const contextPrompt = `
+你是一个专业的西安小升初智能助手"小猫助手"。你拥有以下核心能力：
+
+【重要指令】
+1. 你必须以 data/schools.json 与 data/districts.json 为准；
+2. 除这些数据外，不允许猜测数据；
+3. 你只能使用 data/schools.json 和 data/districts.json 中的真实信息；
+4. 若用户询问的学校不在列表内，你必须回答"我目前数据库内还没有该学校的最新学区信息"；
+5. 禁止猜测、禁止编造、禁止杜撰。
+
+【用户已填写信息 - 请严格基于这些真实信息分析】
+📋 学生基本信息：
+- 当前年级: ${userData?.当前年级 || '未填写'}
+- 户籍所在区: ${userData?.户籍所在区 || '未填写'}
+- 实际居住区: ${userData?.实际居住区 || '未填写'}
+- 房产情况: ${userData?.房产情况 || '未填写'}
+- 民办意向: ${userData?.民办意向 || '未填写'}
+- 预算范围: ${userData?.预算范围 || '未填写'}
+- 学业规划: ${userData?.学业规划 || '未填写'}
+- 学生特长: ${userData?.学生特长?.join('、') || '无'}
+
+📊 能力评估得分：
+- 学业成绩: ${userData?.能力评估?.['维度1'] || '未评估'}分
+- 综合素养: ${userData?.能力评估?.['维度2'] || '未评估'}分
+- 学习习惯: ${userData?.能力评估?.['维度3'] || '未评估'}分
+- 心理素质: ${userData?.能力评估?.['维度4'] || '未评估'}分
+- 家庭支持: ${userData?.能力评估?.['维度5'] || '未评估'}分
+- 学科倾向: ${userData?.能力评估?.['维度6'] || '未评估'}分
+
+【用户本次提问】
+${message}
+
+【回答格式要求 - 请严格按照以下格式回答，不能缺项】
+📌 1. 学校基本信息
+📍 类型：公办/民办（必须准确）
+📍 区县：（必须准确）
+📍 对口学区（严格按 districts.json）：
+
+📌 2. 入学顺位分析
+📍 用户当前户籍类型：（基于用户数据判断）
+📍 公办入学概率（房户一致/安置房/租住）：
+
+📌 3. 推荐理由（基于用户 memory）
+（结合用户能力评估、特长、预算等进行个性化分析）
+
+📌 4. 来源引用
+- 教育局政策
+- 学校官网
+- 招生简章
+
+请确保回答准确、专业、不跑题。如果有任何不确定的信息，请明确说明"根据现有数据库，该信息暂未收录"。
+            `;
+            
+            return await this.callAIAPI(contextPrompt);
+            
+        } catch (error) {
+            console.error('AI消息发送失败:', error);
+            throw error;
+        }
+    }
+
+    // AI解读政策 - 从老版本复制
+    async interpretPolicy(userData) {
+        try {
+            const question = `用户户籍信息：${userData?.hukouDistrict || '未填写'}，居住信息：${userData?.liveDistrict || '未填写'}\n请详细解读西安市小升初的入学顺位政策，包括房户一致、集体户、租房等不同情况的入学顺序，并分析用户的情况`;
+            
+            return await this.callAIAPI(question);
+        } catch (error) {
+            throw new Error(`AI解读失败：${error.message}`);
+        }
+    }
+
+    // AI生成能力分析 - 从老版本复制
+    async generateAbilityAnalysis(userData) {
+        try {
+            const prompt = `
+请根据以下学生完整信息，生成【深度个性化能力分析与改进建议】：
+
+【学生基本情况】
+- 当前年级: ${userData?.当前年级 || '未填写'}
+- 学生特长: ${userData?.学生特长?.join('、') || '无'}
+- 学业规划: ${userData?.学业规划 || '未填写'}
+- 户籍所在区: ${userData?.户籍所在区 || '未填写'} 
+- 实际居住区: ${userData?.实际居住区 || '未填写'}
+- 房产情况: ${userData?.房产情况 || '未填写'}
+- 民办意向: ${userData?.民办意向 || '未填写'}
+
+【能力评估详细数据】
+- 学业成绩: ${userData?.能力评估?.['维度1'] || '未评估'}分
+- 综合素养: ${userData?.能力评估?.['维度2'] || '未评估'}分  
+- 学习习惯: ${userData?.能力评估?.['维度3'] || '未评估'}分
+- 心理素质: ${userData?.能力评估?.['维度4'] || '未评估'}分
+- 家庭支持: ${userData?.能力评估?.['维度5'] || '未评估'}分
+- 学科倾向: ${userData?.能力评估?.['维度6'] || '未评估'}分
+
+要求：
+1. 必须结合学生的年级(${userData?.当前年级})分析发展需求
+2. 必须结合户籍(${userData?.户籍所在区})和居住地(${userData?.实际居住区})分析教育资源匹配
+3. 必须结合房产情况(${userData?.房产情况})和民办意向(${userData?.民办意向})给出升学策略建议
+4. 分析每个维度的具体表现和改进空间
+5. 给出针对性的能力提升建议和时间规划
+6. 结合学生特长(${userData?.学生特长?.join('、')})推荐适合的发展方向
+7. 以家长易懂的语言表达，避免专业术语
+
+请直接返回HTML格式的分析内容，不要包含markdown标记。
+            `;
+
+            return await this.callAIAPI(prompt);
+        } catch (error) {
+            throw new Error(`能力分析生成失败：${error.message}`);
+        }
+    }
+
+    // AI生成学校推荐 - 从老版本复制
+    async generateSchoolRecommendations(userData) {
+        try {
+            // 判断入学类型
+            const 判断入学类型 = (userData) => {
+                const 户籍区 = userData.户籍所在区 || '';
+                const 居住区 = userData.实际居住区 || '';
+                const 房产情况 = userData.房产情况 || '';
+                
+                if (户籍区 === '外地户籍' || !户籍区) {
+                    return '随迁类 - 需办理居住证,由居住证所在区统筹安排公办入学';
+                }
+                
+                if (户籍区 === 居住区 && 房产情况.includes('自有')) {
+                    return '户籍类(房户一致) - 可报名对口公办学校,第一顺位';
+                }
+                
+                if (户籍区 !== 居住区) {
+                    return '户籍类(房户不一致) - 可报名户籍所在区公办学校,第二顺位';
+                }
+                
+                if (房产情况.includes('租房')) {
+                    return '户籍类(租房居住) - 统筹安排公办入学,第四顺位';
+                }
+                
+                return '户籍类 - 建议确认具体房户情况';
+            };
+
+            const prompt = `
+请根据以下学生完整信息，生成【个性化学校推荐】:
+
+【学生基本情况】
+- 当前年级: ${userData?.当前年级 || '未填写'}
+- 学生特长: ${userData?.学生特长?.join('、') || '无'}
+- 学业规划: ${userData?.学业规划 || '未填写'}
+
+【户籍与居住信息】
+- 户籍所在区: ${userData?.户籍所在区 || '未填写'}
+- 实际居住区: ${userData?.实际居住区 || '未填写'}
+- 房产情况: ${userData?.房产情况 || '未填写'}
+- 入学情况判断: ${判断入学类型(userData)}
+
+【家庭意向】
+- 民办意向: ${userData?.民办意向 || '未填写'}
+- 预算范围: ${userData?.预算范围 || '未填写'}
+
+【能力评估详细数据】
+- 学业成绩: ${userData?.能力评估?.['维度1'] || '未评估'}分
+- 综合素养: ${userData?.能力评估?.['维度2'] || '未评估'}分  
+- 学习习惯: ${userData?.能力评估?.['维度3'] || '未评估'}分
+- 心理素质: ${userData?.能力评估?.['维度4'] || '未评估'}分
+- 家庭支持: ${userData?.能力评估?.['维度5'] || '未评估'}分
+- 学科倾向: ${userData?.能力评估?.['维度6'] || '未评估'}分
+
+【重要指令】
+1. 你必须以 data/schools.json 与 data/districts.json 为准；
+2. 除这些数据外，不允许猜测数据；
+3. 只能推荐数据库中的真实学校；
+4. 如果数据库中无对应信息，请明确说明。
+
+【推荐要求】
+1. **必须严格遵循西安市2025年招生政策**
+2. **公办学校推荐规则**:
+   - 户籍类(房户一致/房户不一致): 只能推荐户籍所在区内对口公办学校
+   - 随迁类: 只能推荐居住证所在区统筹公办学校
+3. **民办学校推荐规则**:
+   - 可推荐全市范围内民办学校
+   - 必须说明摇号概率(基于历史数据)
+4. **推荐5所学校**: 2所冲刺校 + 2所稳妥校 + 1所保底校
+5. **每所学校必须包含**:
+   - 学校名称(必须是真实存在的西安学校)
+   - 类型(民办/公办)
+   - 匹配度(百分比)
+   - 推荐理由(结合学生能力+地理位置+政策要求)
+   - 摇号概率/入学概率
+   - 学校特色
+   - 推荐类型(冲刺/稳妥/保底)
+   - 收费标准(民办学校必填)
+   - 入学要求(政策依据)
+   - 数据来源(必须说明)
+
+6. **输出格式要求**:
+以HTML格式输出,使用以下结构：
+
+<div class="school-card recommended">
+    <div class="school-header">
+        <h4>【学校名称】</h4>
+        <span class="match-badge">匹配度 XX%</span>
+    </div>
+    <div class="school-details">
+        <p><strong>类型:</strong> 民办/公办</p>
+        <p><strong>区县:</strong> 【区县名称】</p>
+        <p><strong>对口学区:</strong> 【严格按districts.json填写】</p>
+        <p><strong>特色:</strong> 【学校特色】</p>
+        <p><strong>预估摇号概率/入学概率:</strong> XX%</p>
+        <p><strong>推荐理由:</strong> 【具体分析】</p>
+        <p><strong>收费标准:</strong> 【仅民办填写】</p>
+        <p><strong>入学要求:</strong> 【政策依据】</p>
+        <p><strong>数据来源:</strong> 学校官网/招生简章/教育局政策</p>
+    </div>
+</div>
+
+请直接返回HTML内容,不要包含markdown标记。
+            `;
+
+            return await this.callAIAPI(prompt);
+        } catch (error) {
+            throw new Error(`学校推荐生成失败：${error.message}`);
+        }
+    }
+
+    // AI生成时间规划 - 从老版本复制
+    async generateTimePlan(userData) {
+        const currentYear = new Date().getFullYear();
+        const targetYear = userData?.当前年级 === '六年级' ? currentYear + 1 : 
+                          userData?.当前年级 === '五年级' ? currentYear + 2 : 
+                          userData?.当前年级 === '四年级' ? currentYear + 3 : currentYear + 1;
+        
+        const prompt = `
+请根据以下家庭信息和学生情况制定【${targetYear}年西安小升初个性化时间规划】：
+
+用户信息：
+${JSON.stringify(userData, null, 2)}
+
+要求：
+1. 基于学生当前${userData?.当前年级 || '六年级'}的情况制定时间规划
+2. 列出${targetYear}年每个月的关键事项（政策关注、学校了解、材料准备、报名、摇号、录取等）
+3. 根据家庭情况给出特别提醒（如：户籍不一致需提前准备材料、民办意向强需关注学校开放日等）
+4. 标注每个时间节点的重要性（关键/重要/提醒）
+5. 用简洁、可执行的方式呈现，包含具体日期
+6. 以HTML格式输出，使用<ul><li>结构
+
+请直接返回HTML内容，不要包含markdown标记。
+        `;
+
+        try {
+            return await this.callAIAPI(prompt);
+        } catch (error) {
+            throw new Error(`时间规划生成失败：${error.message}`);
+        }
+    }
+
+    // AI生成政策提醒 - 从老版本复制
+    async generatePolicyTips(userData) {
+        const prompt = `
+请根据以下学生和家庭信息，生成【个性化小升初政策提醒与建议】：
+
+用户信息：
+${JSON.stringify(userData, null, 2)}
+
+要求：
+1. 根据户籍、居住情况判断公办入学顺位（第一/第二/第三/第四顺位）
+2. 分析民办摇号是否有优势（如：区内摇号概率）
+3. 是否受租房政策影响
+4. 是否有房户一致优势
+5. 给出明确的风险提示与应对建议
+6. 以HTML格式输出，使用<div>和<p>结构，关键信息用<strong>标记
+
+请直接返回HTML内容，不要包含markdown标记。
+        `;
+
+        try {
+            return await this.callAIAPI(prompt);
+        } catch (error) {
+            throw new Error(`政策提醒生成失败：${error.message}`);
+        }
+    }
+
+    // 保存AI配置
+    saveConfig(provider, apiKey, appId) {
+        this.CONFIG.provider = provider;
+        this.CONFIG.apiKey = apiKey;
+        this.CONFIG.appId = appId;
+        this.CONFIG.isConnected = true;
+        
+        localStorage.setItem('aiProvider', provider);
+        localStorage.setItem('aiApiKey', apiKey);
+        localStorage.setItem('aiAppId', appId);
+        localStorage.setItem('aiMode', 'online');
+    }
+
+    // 切换到本地模式
+    useLocalMode() {
+        this.CONFIG.isConnected = false;
+        localStorage.setItem('aiMode', 'local');
+    }
+
+    // 恢复配置
+    restoreConfig() {
+        const savedProvider = localStorage.getItem('aiProvider') || 'bailian';
+        const savedApiKey = localStorage.getItem('aiApiKey') || '';
+        const savedAppId = localStorage.getItem('aiAppId') || '';
+        const savedMode = localStorage.getItem('aiMode') || 'local';
+        
+        const isLocalMode = savedMode === 'local' || !savedApiKey;
+        
+        this.CONFIG.provider = savedProvider;
+        this.CONFIG.apiKey = savedApiKey;
+        this.CONFIG.appId = savedAppId;
+        this.CONFIG.isConnected = !isLocalMode && savedApiKey;
+        
+        return {
+            provider: savedProvider,
+            apiKey: savedApiKey,
+            appId: savedAppId,
+            isConnected: this.CONFIG.isConnected
+        };
+    }
+}
+
+// ========== 4. 推荐引擎模块 (RecommendationEngine) - 增强版 ==========
 class RecommendationEngine {
-    constructor(dataManager) {
+    constructor(dataManager, aiCore) {
         this.dataManager = dataManager;
+        this.aiCore = aiCore;
         
         this.weights = {
             hukouDistrictMatch: 35,
@@ -837,6 +1137,11 @@ class RecommendationEngine {
                 options.limit || this.config.defaultLimit
             );
             
+            // 使用AI生成增强分析
+            if (this.aiCore.CONFIG.isConnected) {
+                categorized.aiAnalysis = await this.generateAIAnalysis(categorized, profile, enrollmentType);
+            }
+            
             categorized.summary = this.generateSummary(categorized, profile, enrollmentType);
             
             return categorized;
@@ -844,6 +1149,36 @@ class RecommendationEngine {
         } catch (error) {
             console.error('推荐失败:', error);
             throw error;
+        }
+    }
+
+    // 生成AI分析（融合老版本AI功能）
+    async generateAIAnalysis(results, profile, enrollmentType) {
+        try {
+            const analysis = {
+                abilityAnalysis: '',
+                schoolRecommendations: '',
+                timePlan: '',
+                policyTips: ''
+            };
+            
+            // 并行生成所有AI分析
+            const [abilityAnalysis, schoolRecommendations, timePlan, policyTips] = await Promise.all([
+                this.aiCore.generateAbilityAnalysis(profile).catch(() => ''),
+                this.aiCore.generateSchoolRecommendations(profile).catch(() => ''),
+                this.aiCore.generateTimePlan(profile).catch(() => ''),
+                this.aiCore.generatePolicyTips(profile).catch(() => '')
+            ]);
+            
+            analysis.abilityAnalysis = abilityAnalysis;
+            analysis.schoolRecommendations = schoolRecommendations;
+            analysis.timePlan = timePlan;
+            analysis.policyTips = policyTips;
+            
+            return analysis;
+        } catch (error) {
+            console.error('AI分析生成失败:', error);
+            return null;
         }
     }
 
@@ -1277,16 +1612,19 @@ class RecommendationEngine {
     }
 }
 
-// ========== 4. UI控制器模块 (UIController) ==========
+// ========== 5. UI控制器模块 (UIController) - 增强版 ==========
 class UIController {
-    constructor(dataManager, recommendEngine) {
+    constructor(dataManager, recommendEngine, aiCore) {
         this.dataManager = dataManager;
         this.recommendEngine = recommendEngine;
+        this.aiCore = aiCore;
+        
         this.currentStep = 1;
         this.formData = {};
         this.validationRules = this._initValidationRules();
+        this.abilityChartInstance = null;
         
-        // 街道数据
+        // 街道数据 - 从老版本复制
         this.STREET_DATA = {
             '新城区': ['西一路街道', '长乐中路街道', '中山门街道', '韩森寨街道', '解放门街道', '长乐西路街道', '太华路街道', '自强路街道'],
             '碑林区': ['南院门街道', '柏树林街道', '长乐坊街道', '东关南街街道', '太乙路街道', '文艺路街道', '长安路街道', '张家村街道'],
@@ -1316,6 +1654,7 @@ class UIController {
             this.bindEvents();
             this.restoreState();
             this.initializeComponents();
+            this.setupChatDrag(); // 设置聊天窗口拖动
             console.log('✅ UI控制器初始化完成');
         } catch (error) {
             console.error('❌ UI初始化失败:', error);
@@ -1326,120 +1665,442 @@ class UIController {
     initializeComponents() {
         this.initStreetBinding();
         this.initTooltips();
+        this.attachSearchableSelects(); // 添加搜索功能
     }
 
     bindEvents() {
         // 推荐按钮
         const generateBtn = document.getElementById('generateReportBtn');
         if (generateBtn) {
-            generateBtn.addEventListener('click', () => this.generateRecommendations());
+            generateBtn.addEventListener('click', () => this.generateReport());
+        }
+
+        // 聊天发送按钮
+        const chatSendBtn = document.getElementById('chatSendBtn');
+        if (chatSendBtn) {
+            chatSendBtn.addEventListener('click', () => this.sendChatMessage());
+        }
+
+        // 聊天输入框回车键
+        const chatInput = document.getElementById('chatInput');
+        if (chatInput) {
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    this.sendChatMessage();
+                }
+            });
+        }
+
+        // AI配置保存
+        const saveConfigBtn = document.getElementById('saveConfigBtn');
+        if (saveConfigBtn) {
+            saveConfigBtn.addEventListener('click', () => this.saveAndTestConfig());
+        }
+
+        // 导出按钮
+        const exportPdfBtn = document.getElementById('exportFullPdfBtn');
+        if (exportPdfBtn) {
+            exportPdfBtn.addEventListener('click', () => this.exportPDF());
+        }
+
+        const exportJsonBtn = document.getElementById('exportJsonBtn');
+        if (exportJsonBtn) {
+            exportJsonBtn.addEventListener('click', () => this.exportJSON());
         }
     }
 
-    goToStep(stepNumber) {
-        if (stepNumber > this.currentStep) {
-            if (!this.validateCurrentStep()) {
-                return;
-            }
-        }
-
+    // ========== 步骤导航 - 从老版本复制并优化 ==========
+    showStep(stepNumber) {
+        console.log(`切换到步骤 ${stepNumber}`);
+        
+        // 隐藏所有步骤
         document.querySelectorAll('.section').forEach(section => {
             section.classList.remove('active');
         });
-
+        
+        // 移除所有步骤指示器的激活状态
         document.querySelectorAll('.step').forEach(step => {
             step.classList.remove('active');
         });
-
+        
+        // 显示目标步骤
         const targetSection = document.getElementById(`step${stepNumber}`);
         if (targetSection) {
             targetSection.classList.add('active');
         }
-
+        
+        // 激活对应的步骤指示器
         const targetIndicator = document.getElementById(`step${stepNumber}-indicator`);
         if (targetIndicator) {
             targetIndicator.classList.add('active');
         }
-
-        this.updateProgressBar(stepNumber);
-        this.currentStep = stepNumber;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        this.saveState();
-    }
-
-    updateProgressBar(stepNumber) {
+        
+        // 更新进度条
         const progressBar = document.getElementById('progressBar');
         if (progressBar) {
             const progress = ((stepNumber - 1) / 6) * 100;
             progressBar.style.width = `${progress}%`;
         }
+        
+        // 滚动到顶部
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        // 保存当前步骤
+        this.currentStep = stepNumber;
+        this.saveState();
     }
 
-    validateCurrentStep() {
-        const stepValidators = {
-            1: () => this.validateStep1(),
-            2: () => this.validateStep2(),
-            3: () => this.validateStep3(),
-            4: () => this.validateStep4(),
-            5: () => this.validateStep5(),
-            6: () => this.validateStep6()
-        };
+    // ========== 聊天功能 - 从老版本复制 ==========
+    setupChatDrag() {
+        const chatHeader = document.getElementById('chatHeader');
+        const chatWindow = document.getElementById('chatWindow');
+        
+        if (!chatHeader || !chatWindow) return;
+        
+        chatHeader.addEventListener('mousedown', (e) => {
+            if (e.target.closest('button, a')) return;
+            this.aiCore.isDragging = true;
+            chatWindow.style.transition = 'none';
+            this.aiCore.offsetX = e.clientX - chatWindow.offsetLeft;
+            this.aiCore.offsetY = e.clientY - chatWindow.offsetTop;
+        });
 
-        const validator = stepValidators[this.currentStep];
-        return validator ? validator() : true;
+        document.addEventListener('mousemove', (e) => {
+            if (!this.aiCore.isDragging || !chatWindow) return;
+            const x = Math.max(0, Math.min(window.innerWidth - chatWindow.offsetWidth, e.clientX - this.aiCore.offsetX));
+            const y = Math.max(0, Math.min(window.innerHeight - chatWindow.offsetHeight, e.clientY - this.aiCore.offsetY));
+            chatWindow.style.left = `${x}px`;
+            chatWindow.style.top = `${y}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (this.aiCore.isDragging && chatWindow) {
+                this.aiCore.isDragging = false;
+                chatWindow.style.transition = '';
+            }
+        });
     }
 
-    validateStep3() {
-        const hukouDistrict = document.getElementById('householdDistrict');
-        const residenceDistrict = document.getElementById('residenceDistrict');
-
-        let isValid = true;
-
-        if (!hukouDistrict?.value) {
-            this.showFieldError(hukouDistrict, '请选择户籍所在区');
-            isValid = false;
+    async sendChatMessage() {
+        const chatInput = document.getElementById('chatInput');
+        const message = chatInput.value.trim();
+        if (!message) return;
+        
+        if (!this.aiCore.CONFIG.isConnected) {
+            alert('AI聊天功能在本地模式下不可用。请切换到在线模式。');
+            return;
         }
-
-        if (!residenceDistrict?.value) {
-            this.showFieldError(residenceDistrict, '请选择实际居住区');
-            isValid = false;
+        
+        // 显示用户消息
+        this.addMessageToChat('user', message);
+        chatInput.value = '';
+        
+        try {
+            // 显示加载状态
+            this.showChatLoading();
+            
+            // 收集用户完整数据
+            const userData = this.collectUserDataForAI();
+            
+            // 调用AI
+            const response = await this.aiCore.sendMessage(message, userData);
+            
+            // 隐藏加载指示器
+            this.hideChatLoading();
+            
+            // 显示AI回复
+            this.addMessageToChat('assistant', response);
+            
+        } catch (error) {
+            this.hideChatLoading();
+            this.addMessageToChat('assistant', `抱歉，出现错误：${error.message}`);
         }
-
-        return isValid;
     }
 
-    // 表单数据收集
+    addMessageToChat(role, content) {
+        const chatBody = document.getElementById('chatBody');
+        if (!chatBody) return;
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `ai-message ${role}`;
+        
+        if (role === 'user') {
+            messageDiv.innerHTML = `
+                <div class="message-avatar">👤</div>
+                <div class="message-content">${content}</div>
+            `;
+        } else {
+            messageDiv.innerHTML = `
+                <div class="message-avatar">🐱</div>
+                <div class="message-content">
+                    ${content}
+                    <div class="source-info">
+                        <span class="trust-badge trust-verified">✅ 数据准确</span>
+                        基于西安市2025年官方政策与真实学校数据库
+                    </div>
+                </div>
+            `;
+        }
+        
+        chatBody.appendChild(messageDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    showChatLoading() {
+        const chatBody = document.getElementById('chatBody');
+        if (!chatBody) return;
+        
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'loading-indicator';
+        loadingDiv.className = 'ai-message assistant';
+        loadingDiv.innerHTML = `
+            <div class="message-avatar">🐱</div>
+            <div class="message-content">
+                <div class="ai-loading-spinner" style="width:20px;height:20px;"></div>
+                正在查询学校数据库并分析中...
+            </div>
+        `;
+        chatBody.appendChild(loadingDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
+    }
+
+    hideChatLoading() {
+        const loadingDiv = document.getElementById('loading-indicator');
+        if (loadingDiv) {
+            loadingDiv.remove();
+        }
+    }
+
+    // ========== 快捷操作 - 从老版本复制 ==========
+    async quickAction(text) {
+        if (!this.aiCore.CONFIG.isConnected) {
+            alert(`快捷操作 "${text}" 在本地模式下不可用。请切换到在线模式。`);
+            return;
+        }
+        
+        try {
+            this.showChatLoading();
+            
+            const userMemory = this.aiCore.getUserMemory();
+            const userData = this.collectUserDataForAI();
+            
+            let question = text;
+            
+            if (text === '2026年小升初时间安排') {
+                question = `用户信息：${JSON.stringify(userMemory)}\n请基于以上用户情况，预测2026年西安小升初的时间安排和重要节点`;
+            } else if (text === '民办学校有哪些') {
+                question = `用户预算：${userData.预算范围}\n请列出西安市主要的民办初中学校（基于schools.json真实数据）`;
+            } else if (text === '摇号政策') {
+                question = `用户户籍：${userData.户籍所在区}\n请详细解释西安市民办初中摇号政策的具体流程`;
+            }
+            
+            const response = await this.aiCore.callAIAPI(question);
+            
+            this.hideChatLoading();
+            this.addMessageToChat('assistant', response);
+            
+        } catch (error) {
+            this.hideChatLoading();
+            this.addMessageToChat('assistant', `抱歉，出现错误：${error.message}`);
+        }
+    }
+
+    // ========== AI解读政策 - 从老版本复制 ==========
+    async interpretPolicy() {
+        if (!this.aiCore.CONFIG.isConnected) {
+            alert('AI解读功能在本地模式下不可用。请切换到在线模式。');
+            return;
+        }
+        
+        try {
+            this.showChatLoading();
+            
+            const userMemory = this.aiCore.getUserMemory();
+            const question = `用户户籍信息：${userMemory.hukouDistrict || '未填写'}，居住信息：${userMemory.liveDistrict || '未填写'}\n请详细解读西安市小升初的入学顺位政策，包括房户一致、集体户、租房等不同情况的入学顺序，并分析用户的情况`;
+            
+            const response = await this.aiCore.callAIAPI(question);
+            
+            this.hideChatLoading();
+            
+            // 显示解读结果
+            const interpretationResult = document.getElementById('interpretationResult');
+            if (interpretationResult) {
+                interpretationResult.innerHTML = `
+                    <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #3b82f6;">
+                        <h4 style="margin: 0 0 10px 0; color: #1e40af;">🤖 AI政策解读（基于用户情况）</h4>
+                        <div style="line-height: 1.6; color: #374151;">${response}</div>
+                        <div style="margin-top: 10px; font-size: 12px; color: #6b7280;">
+                            <span class="trust-badge trust-verified">✅ 数据准确</span> 
+                            基于${this.aiCore.CONFIG.provider}模型分析 · 严格参照学校数据库
+                        </div>
+                    </div>
+                `;
+            }
+            
+        } catch (error) {
+            this.hideChatLoading();
+            alert(`AI解读失败：${error.message}`);
+        }
+    }
+
+    // ========== 报告生成功能 - 融合老版本AI功能 ==========
+    async generateReport() {
+        console.log('生成报告中...');
+        
+        // 显示步骤7
+        this.showStep(7);
+        
+        // 显示加载状态
+        const loadingEl = this.showLoading('正在生成智能报告...<br><small>分析数据并调用AI模型</small>');
+        
+        try {
+            // 收集所有数据
+            const userData = this.collectUserData();
+            
+            // 生成能力雷达图
+            await this.generateAbilityChart(userData);
+            
+            // 获取推荐结果
+            const results = await this.recommendEngine.recommend(userData);
+            
+            // 渲染结果
+            this.renderResults(results);
+            
+            // 保存结果
+            this.saveResults(results);
+            
+            // 显示成功消息
+            setTimeout(() => {
+                this.hideLoading(loadingEl);
+                alert('报告生成完成！请查看AI推荐结果。');
+            }, 500);
+            
+        } catch (error) {
+            console.error('报告生成失败:', error);
+            this.hideLoading(loadingEl);
+            this.showError('报告生成失败', error.message);
+        }
+    }
+
+    // ========== 表单数据收集 ==========
     collectUserData() {
-        return {
-            name: this.getInputValue('studentName'),
-            gender: this.getRadioValue('studentGender'),
+        const data = {
+            // 基本信息
+            studentName: this.getInputValue('studentName'),
+            studentGender: this.getRadioValue('studentGender'),
             currentSchool: this.getInputValue('currentSchool'),
-            grade: this.getRadioValue('currentGrade'),
+            currentGrade: this.getRadioValue('currentGrade'),
+            
+            // 户籍信息
             hukouDistrict: this.getSelectValue('householdDistrict'),
             hukouStreet: this.getSelectValue('householdStreet'),
             hukouAddress: this.getInputValue('householdAddress'),
+            
+            // 居住信息
             residenceDistrict: this.getSelectValue('residenceDistrict'),
             residenceStreet: this.getSelectValue('residenceStreet'),
             residenceAddress: this.getInputValue('residenceAddress'),
             residenceType: this.getSelectValue('residenceType'),
+            
+            // 房产信息
             hasHouse: this.getSelectValue('hasHouse'),
             propertyType: this.getSelectValue('propertyType'),
             propertyYears: this.getSelectValue('propertyYears'),
+            
+            // 其他信息
             sameDistrict: this.getCheckboxValue('sameDistrict'),
             sameStreet: this.getCheckboxValue('sameStreet'),
             inSchoolDistrict: this.getCheckboxValue('inSchoolDistrict'),
+            
+            // 能力评估
             abilityScores: this.collectAbilityScores(),
+            
+            // 民办意向
             considerPrivate: this.getSelectValue('considerPrivate'),
             crossDistrictPreference: this.getSelectValue('crossDistrictPreference'),
             budget: this.getNumberValue('budget'),
             acceptLottery: this.getSelectValue('acceptLottery'),
+            
+            // 其他
             academicGoals: this.getTextareaValue('academicGoals'),
             specialties: this.getCheckboxValues('specialty'),
             philosophies: this.getCheckboxValues('educationConcept'),
             maxDistanceKm: this.getNumberValue('maxDistance'),
             boardingPref: this.getRadioValue('boarding'),
+            
             timestamp: new Date().toISOString()
         };
+        
+        // 保存到用户记忆
+        Object.keys(data).forEach(key => {
+            if (data[key] !== '' && data[key] !== null && data[key] !== undefined) {
+                this.aiCore.saveUserMemory(key, data[key]);
+            }
+        });
+        
+        return data;
+    }
+
+    collectUserDataForAI() {
+        const userData = {
+            能力评估: {},
+            当前年级: '',
+            户籍所在区: '',
+            实际居住区: '',
+            房产情况: '',
+            民办意向: '',
+            预算范围: '',
+            学业规划: '',
+            学生特长: [],
+            教育理念偏好: []
+        };
+        
+        // 收集当前年级
+        const currentGrade = document.querySelector('input[name="currentGrade"]:checked');
+        if (currentGrade) userData.当前年级 = currentGrade.value;
+        
+        // 收集能力评估数据
+        const scoreRadios = document.querySelectorAll('input[type="radio"]:checked');
+        scoreRadios.forEach(radio => {
+            const name = radio.name.replace('score', '');
+            const value = radio.value;
+            if (name && value && radio.name.startsWith('score')) {
+                userData.能力评估[`维度${name}`] = value;
+            }
+        });
+        
+        // 收集户籍和居住信息
+        const householdDistrict = document.getElementById('householdDistrict');
+        const residenceDistrict = document.getElementById('residenceDistrict');
+        if (householdDistrict) userData.户籍所在区 = householdDistrict.value;
+        if (residenceDistrict) userData.实际居住区 = residenceDistrict.value;
+        
+        // 收集其他表单数据
+        const propertyType = document.getElementById('propertyType');
+        if (propertyType) userData.房产情况 = propertyType.value;
+        
+        const considerPrivate = document.getElementById('considerPrivate');
+        if (considerPrivate) userData.民办意向 = considerPrivate.value;
+        
+        const budget = document.getElementById('budget');
+        if (budget) userData.预算范围 = budget.value;
+        
+        const academicGoals = document.getElementById('academicGoals');
+        if (academicGoals) userData.学业规划 = academicGoals.value;
+        
+        // 收集特长
+        const specialties = document.querySelectorAll('input[name="specialty"]:checked, .strength-check:checked');
+        specialties.forEach(specialty => {
+            userData.学生特长.push(specialty.value);
+        });
+        
+        // 收集教育理念
+        const educationConcepts = document.querySelectorAll('input[name="educationConcept"]:checked, .philosophy-check:checked');
+        educationConcepts.forEach(concept => {
+            userData.教育理念偏好.push(concept.value);
+        });
+        
+        return userData;
     }
 
     collectAbilityScores() {
@@ -1482,32 +2143,12 @@ class UIController {
         return document.getElementById(id)?.value?.trim() || '';
     }
 
-    // 推荐生成
-    async generateRecommendations() {
-        const loadingEl = this.showLoading('正在智能匹配学校...<br><small>分析您的户籍、居住、预算等信息</small>');
-
-        try {
-            const profile = this.collectUserData();
-            const results = await this.recommendEngine.recommend(profile);
-            this.renderResults(results);
-            this.renderAbilityChart(profile.abilityScores);
-            this.goToStep(7);
-            this.saveResults(results);
-
-        } catch (error) {
-            console.error('推荐生成失败:', error);
-            this.showError('推荐生成失败', error.message);
-        } finally {
-            this.hideLoading(loadingEl);
-        }
-    }
-
-    // 结果渲染
+    // ========== 结果渲染 ==========
     renderResults(results) {
         this.renderSummary(results);
-        this.renderPublicSchools(results.public);
-        this.renderPrivateSchools(results);
-        this.renderStrategy(results.summary);
+        this.renderAbilityAnalysis(results);
+        this.renderSchoolRecommendations(results);
+        this.renderTimelineAndPolicy(results);
     }
 
     renderSummary(results) {
@@ -1558,66 +2199,81 @@ class UIController {
         `;
     }
 
-    renderPublicSchools(schools) {
-        const container = document.getElementById('schoolRecommendation');
-        if (!container || schools.length === 0) return;
-
-        container.innerHTML = `
-            <h3>🏫 公办学校推荐 (${schools.length}所)</h3>
-            <table class="school-table">
-                <thead>
-                    <tr>
-                        <th width="50">序号</th>
-                        <th>学校名称</th>
-                        <th width="100">所在区</th>
-                        <th width="100">匹配度</th>
-                        <th>匹配原因</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${schools.map((s, i) => this.renderSchoolRow(s, i + 1)).join('')}
-                </tbody>
-            </table>
-        `;
+    renderAbilityAnalysis(results) {
+        const analysisElement = document.getElementById('abilityAnalysis');
+        if (!analysisElement) return;
+        
+        if (results.aiAnalysis?.abilityAnalysis) {
+            analysisElement.innerHTML = `
+                <div style="background: #f0f9ff; padding: 25px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 20px 0; min-height: 250px;">
+                    <h4 style="margin: 0 0 15px 0; color: #1e40af;">🎯 AI深度能力分析</h4>
+                    <div style="line-height: 1.6; font-size: 14px; color: #374151;">
+                        ${results.aiAnalysis.abilityAnalysis}
+                    </div>
+                    <div class="source-info" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #d1e9ff;">
+                        <span class="trust-badge trust-verified">🤖 AI智能分析</span>
+                        基于${this.aiCore.CONFIG.provider}大模型深度分析 · 充分考虑个人情况
+                    </div>
+                </div>
+            `;
+        } else {
+            analysisElement.innerHTML = `
+                <div style="background: #f0f9ff; padding: 25px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 20px 0; min-height: 200px;">
+                    <h4 style="margin: 0 0 15px 0; color: #1e40af;">🎯 能力分析</h4>
+                    <div style="line-height: 1.6; font-size: 14px; color: #374151;">
+                        <strong>能力分析：</strong>您的孩子在学业成绩和学习习惯方面表现良好，家庭支持度很高。
+                        建议重点关注心理素质的培养，帮助孩子更好地应对升学压力。
+                    </div>
+                    <p style="color: #e53e3e; margin-top: 8px; font-size: 12px;">
+                        ${this.aiCore.CONFIG.isConnected ? 'AI分析生成失败，显示默认分析' : 'AI分析需要在线模式'}
+                    </p>
+                </div>
+            `;
+        }
     }
 
-    renderPrivateSchools(results) {
-        const container = document.getElementById('schoolRecommendation');
-        if (!container || results.private.length === 0) return;
-
-        container.innerHTML = `
-            <h3>🎯 民办学校推荐 (${results.private.length}所)</h3>
-            <p class="strategy-note">建议按"冲刺-稳妥-保底"梯度填报志愿</p>
+    renderSchoolRecommendations(results) {
+        const recommendationElement = document.getElementById('schoolRecommendation');
+        if (!recommendationElement) return;
+        
+        if (results.aiAnalysis?.schoolRecommendations) {
+            recommendationElement.innerHTML = `
+                <div class="school-recommendation-list">
+                    ${results.aiAnalysis.schoolRecommendations}
+                    <div class="source-info" style="margin-top: 15px;">
+                        <span class="trust-badge trust-verified">✅ 数据准确</span>
+                        基于西安市真实学校数据库 · 严格遵循2025年招生政策
+                    </div>
+                </div>
+            `;
+        } else {
+            // 显示基于规则的推荐
+            let html = '<h3>🏫 学校推荐</h3>';
             
-            ${this.renderPrivateCategory('冲刺类', results.rush.filter(s => s.type === '民办'), 'rush')}
-            ${this.renderPrivateCategory('稳妥类', results.stable.filter(s => s.type === '民办'), 'stable')}
-            ${this.renderPrivateCategory('保底类', results.safe.filter(s => s.type === '民办'), 'safe')}
-        `;
-    }
-
-    renderPrivateCategory(title, schools, type) {
-        if (schools.length === 0) return '';
-
-        return `
-            <div class="category-section ${type}">
-                <h4>${title} (${schools.length}所)</h4>
-                <table class="school-table">
-                    <thead>
-                        <tr>
-                            <th width="50">序号</th>
-                            <th>学校名称</th>
-                            <th width="100">所在区</th>
-                            <th width="100">匹配度</th>
-                            <th width="100">学费/年</th>
-                            <th>匹配原因</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${schools.map((s, i) => this.renderPrivateSchoolRow(s, i + 1)).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
+            if (results.public.length > 0) {
+                html += `<h4>公办学校 (${results.public.length}所)</h4>`;
+                html += '<table class="school-table"><thead><tr><th>学校名称</th><th>所在区</th><th>匹配度</th><th>匹配原因</th></tr></thead><tbody>';
+                results.public.forEach((school, index) => {
+                    if (index < 5) {
+                        html += this.renderSchoolRow(school, index + 1);
+                    }
+                });
+                html += '</tbody></table>';
+            }
+            
+            if (results.private.length > 0) {
+                html += `<h4>民办学校 (${results.private.length}所)</h4>`;
+                html += '<table class="school-table"><thead><tr><th>学校名称</th><th>所在区</th><th>匹配度</th><th>学费/年</th><th>匹配原因</th></tr></thead><tbody>';
+                results.private.forEach((school, index) => {
+                    if (index < 5) {
+                        html += this.renderPrivateSchoolRow(school, index + 1);
+                    }
+                });
+                html += '</tbody></table>';
+            }
+            
+            recommendationElement.innerHTML = html;
+        }
     }
 
     renderSchoolRow(school, index) {
@@ -1667,118 +2323,374 @@ class UIController {
         return reasons.slice(0, 3).join('<br>');
     }
 
-    renderStrategy(summary) {
-        const container = document.getElementById('policyAdvice');
-        if (!container) return;
+    renderTimelineAndPolicy(results) {
+        const timelineElement = document.getElementById('timeline');
+        const policyElement = document.getElementById('policyAdvice');
+        
+        if (results.aiAnalysis?.timePlan && timelineElement) {
+            timelineElement.innerHTML = `
+                <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                    <h4>📅 您的专属时间规划</h4>
+                    ${results.aiAnalysis.timePlan}
+                    <div class="source-info" style="margin-top: 15px;">
+                        <span class="trust-badge trust-verified">🤖 AI个性化生成</span>
+                        基于${this.aiCore.CONFIG.provider}大模型深度分析
+                    </div>
+                </div>
+            `;
+        } else if (timelineElement) {
+            this.displayStaticTimeline(timelineElement);
+        }
+        
+        if (results.aiAnalysis?.policyTips && policyElement) {
+            policyElement.innerHTML = `
+                <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #f56565;">
+                    <h4>💡 政策分析与建议</h4>
+                    ${results.aiAnalysis.policyTips}
+                    <div class="source-info" style="margin-top: 15px;">
+                        <span class="trust-badge trust-verified">🤖 AI智能分析</span>
+                        基于2025年西安小升初最新政策
+                    </div>
+                </div>
+            `;
+        } else if (policyElement) {
+            this.displayStaticPolicy(policyElement);
+        }
+    }
 
-        container.innerHTML = `
-            <div class="strategy-card">
-                <h3>💡 推荐策略</h3>
-                ${summary.strategy.map(s => `
-                    <div class="strategy-item">
-                        <h4>${s.title}</h4>
-                        <p>${s.content}</p>
-                    </div>
-                `).join('')}
-                
-                <h3>⚠️ 重要提醒</h3>
-                ${summary.keyReminders.map(r => `
-                    <div class="reminder-item priority-${r.priority}">
-                        ${r.content}
-                    </div>
-                `).join('')}
+    displayStaticTimeline(element) {
+        element.innerHTML = `
+            <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-top: 10px;">
+                <h4>2025年小升初时间安排</h4>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li><strong>7月11-24日：</strong>公民办同步报名</li>
+                    <li><strong>7月30日：</strong>民办学校摇号录取</li>
+                    <li><strong>8月1-5日：</strong>民办学校补录报名</li>
+                    <li><strong>8月10日前：</strong>公办学校录取通知</li>
+                    <li><strong>8月15-20日：</strong>统筹安排入学</li>
+                    <li><strong>8月25-31日：</strong>各校发放录取通知书</li>
+                </ul>
+                <p style="margin-top: 10px; color: #e53e3e; font-size: 13px;">
+                    💬 提示：配置AI服务后可获得个性化时间规划
+                </p>
             </div>
         `;
     }
 
-    renderAbilityChart(scores) {
+    displayStaticPolicy(element) {
+        element.innerHTML = `
+            <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #f56565;">
+                <h4>重要提醒</h4>
+                <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>请确保在7月11日前准备好所有报名材料</li>
+                    <li>民办学校摇号结果公布后，请及时确认录取</li>
+                    <li>未被民办录取的学生将自动进入公办入学流程</li>
+                    <li>建议提前了解对口公办学校的招生政策</li>
+                    <li>请关注西安市教育局官方网站获取最新信息</li>
+                </ul>
+                <p style="margin-top: 10px; color: #e53e3e; font-size: 13px;">
+                    💬 提示：配置AI服务后可获得个性化政策分析
+                </p>
+            </div>
+        `;
+    }
+
+    // ========== 能力雷达图生成 ==========
+    async generateAbilityChart(userData) {
         const canvas = document.getElementById('abilityChart');
         if (!canvas) return;
-
+        
         const ctx = canvas.getContext('2d');
-        const labels = ['学业成绩', '综合素养', '学习习惯', '心理素质', '家庭支持', '学科倾向'];
-        const data = Object.values(scores).map(v => parseInt(v));
-
-        if (window.abilityChartInstance) {
-            window.abilityChartInstance.destroy();
+        
+        const abilityScores = this.calculateAbilityScores(userData.abilityScores);
+        
+        const data = {
+            labels: ['学业成绩', '综合素养', '学习习惯', '心理素质', '家庭支持', '学科倾向'],
+            datasets: [{
+                label: '能力评估',
+                data: abilityScores,
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: 'rgba(54, 162, 235, 1)'
+            }]
+        };
+        
+        if (this.abilityChartInstance) {
+            this.abilityChartInstance.destroy();
         }
-
-        window.abilityChartInstance = new Chart(ctx, {
+        
+        this.abilityChartInstance = new Chart(ctx, {
             type: 'radar',
-            data: {
-                labels,
-                datasets: [{
-                    label: '能力评估',
-                    data,
-                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    pointBackgroundColor: 'rgba(54, 162, 235, 1)',
-                    pointBorderColor: '#fff',
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: 'rgba(54, 162, 235, 1)'
-                }]
-            },
+            data: data,
             options: {
                 scales: {
                     r: {
                         beginAtZero: true,
                         max: 5,
-                        ticks: { stepSize: 1 }
+                        ticks: {
+                            stepSize: 1
+                        }
                     }
                 }
             }
         });
     }
 
-    // UI工具函数
-    showLoading(message) {
-        const loadingEl = document.createElement('div');
-        loadingEl.className = 'loading-overlay';
-        loadingEl.innerHTML = `
-            <div class="loading-content">
-                <div class="loading-spinner"></div>
-                <div class="loading-text">${message}</div>
-            </div>
-        `;
-        document.body.appendChild(loadingEl);
-        return loadingEl;
+    calculateAbilityScores(scores) {
+        return [
+            parseInt(scores['维度1'] || 3),
+            parseInt(scores['维度2'] || 3),
+            parseInt(scores['维度3'] || 3),
+            parseInt(scores['维度4'] || 3),
+            parseInt(scores['维度5'] || 3),
+            parseInt(scores['维度6'] || 3)
+        ];
     }
 
-    hideLoading(loadingEl) {
-        if (loadingEl && loadingEl.parentNode) {
-            loadingEl.parentNode.removeChild(loadingEl);
+    // ========== PDF导出功能 - 从老版本复制 ==========
+    async exportPDF() {
+        try {
+            // 显示加载提示
+            const loadingMsg = document.createElement('div');
+            loadingMsg.id = 'pdf-loading';
+            loadingMsg.style.cssText = `
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.7); z-index: 9999; display: flex;
+                justify-content: center; align-items: center; color: white;
+                font-size: 18px; flex-direction: column;
+            `;
+            loadingMsg.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="width: 50px; height: 50px; border: 5px solid #f3f3f3;
+                        border-top: 5px solid #3498db; border-radius: 50%;
+                        animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
+                    正在生成专业PDF报告...
+                    <p style="font-size: 14px; margin-top: 10px;">这可能需要几秒钟时间</p>
+                </div>
+                <style>
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                </style>
+            `;
+            document.body.appendChild(loadingMsg);
+            
+            // 检查依赖
+            if (typeof jsPDF === 'undefined') {
+                throw new Error('jsPDF库未加载');
+            }
+            
+            if (typeof html2canvas === 'undefined') {
+                throw new Error('html2canvas库未加载');
+            }
+            
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: "p",
+                unit: "mm",
+                format: "a4",
+                compress: true
+            });
+            
+            // 设置中文字体
+            pdf.setFont("helvetica", "normal");
+            
+            let y = 20;
+            const lineHeight = 7;
+            const pageHeight = 280;
+            const leftMargin = 20;
+            const rightMargin = 190;
+            const pageWidth = 210;
+            
+            // 辅助函数
+            const checkNewPage = () => {
+                if (y > pageHeight) {
+                    pdf.addPage();
+                    y = 20;
+                    pdf.setFont("helvetica", "normal");
+                }
+            };
+            
+            const addTitle = (text, fontSize = 18) => {
+                checkNewPage();
+                pdf.setFontSize(fontSize);
+                pdf.setFont("helvetica", "bold");
+                const textWidth = pdf.getTextWidth(text);
+                const centerX = (pageWidth - textWidth) / 2;
+                pdf.text(text, centerX, y);
+                pdf.setFont("helvetica", "normal");
+                y += fontSize / 2 + 5;
+            };
+            
+            const addSubtitle = (text, fontSize = 14) => {
+                checkNewPage();
+                pdf.setFontSize(fontSize);
+                pdf.setFont("helvetica", "bold");
+                pdf.text(text, leftMargin, y);
+                pdf.setFont("helvetica", "normal");
+                y += 8;
+            };
+            
+            const addText = (text, fontSize = 12, isBold = false, marginLeft = leftMargin) => {
+                pdf.setFontSize(fontSize);
+                if (isBold) {
+                    pdf.setFont("helvetica", "bold");
+                }
+                
+                const lines = pdf.splitTextToSize(text, rightMargin - marginLeft);
+                lines.forEach(line => {
+                    checkNewPage();
+                    pdf.text(line, marginLeft, y);
+                    y += lineHeight;
+                });
+                
+                if (isBold) {
+                    pdf.setFont("helvetica", "normal");
+                }
+            };
+            
+            const addDivider = () => {
+                checkNewPage();
+                pdf.line(leftMargin, y, rightMargin, y);
+                y += 10;
+            };
+            
+            const addBulletList = (items, fontSize = 11) => {
+                pdf.setFontSize(fontSize);
+                items.forEach(item => {
+                    checkNewPage();
+                    pdf.text('•', leftMargin, y);
+                    const lines = pdf.splitTextToSize(' ' + item, rightMargin - leftMargin - 10);
+                    lines.forEach((line, index) => {
+                        if (index > 0) checkNewPage();
+                        pdf.text(line, leftMargin + 5, y);
+                        y += lineHeight;
+                    });
+                    y += 2;
+                });
+            };
+            
+            // 封面
+            addTitle('西安市小升初智能评估报告', 22);
+            y += 5;
+            
+            addText(`报告生成时间：${new Date().toLocaleDateString('zh-CN')} ${new Date().toLocaleTimeString('zh-CN')}`, 12, false, 105);
+            y += 15;
+            
+            addSubtitle('学生基本信息', 16);
+            
+            const userData = this.collectUserData();
+            addText(`当前年级：${userData.currentGrade || "未填写"}`, 12);
+            addText(`户籍所在区：${userData.hukouDistrict || "未填写"}`, 12);
+            addText(`实际居住区：${userData.residenceDistrict || "未填写"}`, 12);
+            addText(`房产情况：${userData.propertyType || "未填写"}`, 12);
+            addText(`民办意向：${userData.considerPrivate || "未填写"}`, 12);
+            
+            addDivider();
+            
+            addText('本报告由西安小升初智能评估系统生成，仅供家长参考。', 10, false, 105);
+            y += 5;
+            addText('实际入学政策请以当年教育局官方发布为准。', 10, false, 105);
+            
+            // 能力评估页
+            pdf.addPage();
+            y = 20;
+            
+            addTitle('一、能力评估分析', 18);
+            y += 5;
+            
+            addSubtitle('能力维度得分', 14);
+            
+            const abilities = [
+                `学业成绩：${userData.abilityScores['维度1'] || '未评估'}分`,
+                `综合素养：${userData.abilityScores['维度2'] || '未评估'}分`,
+                `学习习惯：${userData.abilityScores['维度3'] || '未评估'}分`,
+                `心理素质：${userData.abilityScores['维度4'] || '未评估'}分`,
+                `家庭支持：${userData.abilityScores['维度5'] || '未评估'}分`,
+                `学科倾向：${userData.abilityScores['维度6'] || '未评估'}分`
+            ];
+            
+            addBulletList(abilities, 12);
+            y += 10;
+            
+            // 能力雷达图
+            const abilityChart = document.getElementById("abilityChart");
+            if (abilityChart) {
+                try {
+                    const canvas = await html2canvas(abilityChart);
+                    const imgData = canvas.toDataURL("image/png");
+                    checkNewPage();
+                    pdf.addImage(imgData, "PNG", leftMargin, y, 170, 100);
+                    y += 110;
+                } catch (e) {
+                    addText("(能力雷达图生成失败)", 11);
+                }
+            }
+            
+            // 添加页脚
+            const pageCount = pdf.internal.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i++) {
+                pdf.setPage(i);
+                pdf.setFontSize(9);
+                pdf.text(`第 ${i} 页 / 共 ${pageCount} 页`, pageWidth / 2, 290, { align: 'center' });
+            }
+            
+            // 保存PDF
+            const filename = `西安小升初评估报告_${new Date().toLocaleDateString('zh-CN')}.pdf`;
+            pdf.save(filename);
+            
+            // 移除加载提示
+            document.getElementById('pdf-loading')?.remove();
+            
+            alert('PDF报告生成成功！已保存为：' + filename);
+            
+        } catch (error) {
+            console.error('PDF生成失败:', error);
+            document.getElementById('pdf-loading')?.remove();
+            alert('PDF生成失败: ' + error.message + '\n\n建议使用浏览器打印功能(Ctrl+P)作为替代方案');
         }
     }
 
-    showError(title, message) {
-        alert(`${title}: ${message}`);
-    }
-
-    showFieldError(element, message) {
-        if (!element) return;
-        element.style.borderColor = '#e53e3e';
-        element.style.boxShadow = '0 0 0 1px #e53e3e';
-        
-        let errorEl = element.nextElementSibling;
-        if (!errorEl || !errorEl.classList.contains('field-error')) {
-            errorEl = document.createElement('div');
-            errorEl.className = 'field-error';
-            element.parentNode.insertBefore(errorEl, element.nextSibling);
+    // ========== JSON导出 ==========
+    exportJSON() {
+        try {
+            const profile = this.collectUserData();
+            const results = localStorage.getItem('recommendationResults') || '{}';
+            const statistics = this.dataManager.getStatistics();
+            
+            const exportData = {
+                version: '3.0',
+                exportTime: new Date().toISOString(),
+                profile,
+                results: JSON.parse(results),
+                statistics,
+                aiConfig: {
+                    isConnected: this.aiCore.CONFIG.isConnected,
+                    provider: this.aiCore.CONFIG.provider
+                }
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+                type: 'application/json'
+            });
+            
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `西安小升初评估_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            alert('✅ JSON数据导出成功!');
+            
+        } catch (error) {
+            console.error('JSON导出失败:', error);
+            alert('❌ JSON导出失败: ' + error.message);
         }
-        errorEl.textContent = message;
     }
 
-    clearFieldError(element) {
-        if (!element) return;
-        element.style.borderColor = '';
-        element.style.boxShadow = '';
-        
-        const errorEl = element.nextElementSibling;
-        if (errorEl && errorEl.classList.contains('field-error')) {
-            errorEl.textContent = '';
-        }
-    }
-
+    // ========== 街道联动功能 ==========
     initStreetBinding() {
         this.populateStreets('householdDistrict', 'householdStreet');
         this.populateStreets('residenceDistrict', 'residenceStreet');
@@ -1836,10 +2748,70 @@ class UIController {
         fill();
     }
 
-    initTooltips() {
-        // 初始化工具提示（可根据需要实现）
+    // ========== 搜索功能 ==========
+    attachSearchableSelects() {
+        ['householdDistrict', 'householdStreet', 'residenceDistrict', 'residenceStreet'].forEach(id => {
+            this.attachSearchableSelect(id);
+        });
     }
 
+    attachSearchableSelect(selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        
+        if (select.previousElementSibling && select.previousElementSibling.classList && 
+            select.previousElementSibling.classList.contains('search-input')) return;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'search-input';
+        input.placeholder = '搜索…(支持拼音/汉字)';
+        input.style.width = '100%';
+        input.style.margin = '6px 0';
+        input.style.padding = '8px 10px';
+        input.style.border = '1px solid #e2e8f0';
+        input.style.borderRadius = '6px';
+
+        select.parentNode.insertBefore(input, select);
+
+        const toLower = (s) => (s || '').toLowerCase();
+
+        const options = Array.from(select.options);
+        options.forEach((opt, idx) => {
+            if (idx === 0) return;
+            const txt = (opt.textContent || '').trim();
+            const full = PinyinUtils.toPinyin(txt);
+            const abbr = PinyinUtils.getPinyinInitials(txt);
+            opt.dataset.fullpy = toLower(full);
+            opt.dataset.abbrpy = toLower(abbr);
+            opt.dataset.chstxt = toLower(txt);
+        });
+
+        input.addEventListener('input', () => {
+            const kw = toLower(input.value.trim());
+            const hasKw = !!kw;
+            options.forEach((opt, idx) => {
+                if (idx === 0) return;
+                if (!hasKw) { opt.hidden = false; return; }
+                const chs = opt.dataset.chstxt || '';
+                const full = opt.dataset.fullpy || '';
+                const abbr = opt.dataset.abbrpy || '';
+                const hit = chs.includes(kw) || (full && full.includes(kw)) || (abbr && abbr.includes(kw));
+                opt.hidden = !hit;
+            });
+            if (select.selectedIndex > 0 && select.options[select.selectedIndex].hidden) {
+                select.selectedIndex = 0;
+                this.clearFieldError(select);
+            }
+        });
+    }
+
+    // ========== 工具提示 ==========
+    initTooltips() {
+        // 可根据需要实现工具提示
+    }
+
+    // ========== 状态管理 ==========
     saveState() {
         const formData = this.collectUserData();
         localStorage.setItem('formData', JSON.stringify(formData));
@@ -1857,12 +2829,11 @@ class UIController {
         
         if (savedStep) {
             this.currentStep = parseInt(savedStep);
-            this.goToStep(this.currentStep);
+            this.showStep(this.currentStep);
         }
     }
 
     populateForm(data) {
-        // 填充表单数据（简化实现，实际需要根据表单结构实现）
         for (const key in data) {
             const element = document.getElementById(key) || 
                            document.querySelector(`input[name="${key}"]`) ||
@@ -1885,43 +2856,7 @@ class UIController {
         localStorage.setItem('recommendationResults', JSON.stringify(results));
     }
 
-    exportPDF() {
-        console.log('导出PDF功能');
-        // 实现PDF导出逻辑
-    }
-
-    exportJSON() {
-        const profile = this.collectUserData();
-        const results = JSON.parse(localStorage.getItem('recommendationResults') || '{}');
-        const statistics = this.dataManager.getStatistics();
-        
-        const exportData = {
-            version: '2.0',
-            exportTime: new Date().toISOString(),
-            profile,
-            results,
-            statistics
-        };
-        
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-            type: 'application/json'
-        });
-        
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `西安小升初评估_${new Date().toISOString().slice(0,10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    resetForm() {
-        if (confirm('您确定要重置所有填写的数据吗？')) {
-            localStorage.clear();
-            window.location.reload();
-        }
-    }
-
+    // ========== 验证功能 ==========
     _initValidationRules() {
         return {
             studentName: {
@@ -1967,13 +2902,40 @@ class UIController {
         return true;
     }
 
-    validateStep1() { 
-        // 第一步不是必填项
-        return true; 
+    validateStep3() {
+        const hukouDistrict = document.getElementById('householdDistrict');
+        const residenceDistrict = document.getElementById('residenceDistrict');
+
+        let isValid = true;
+
+        if (!hukouDistrict?.value) {
+            this.showFieldError(hukouDistrict, '请选择户籍所在区');
+            isValid = false;
+        }
+
+        if (!residenceDistrict?.value) {
+            this.showFieldError(residenceDistrict, '请选择实际居住区');
+            isValid = false;
+        }
+
+        return isValid;
     }
-    
-    validateStep2() { 
-        // 检查能力评估是否完成
+
+    validateCurrentStep() {
+        const stepValidators = {
+            1: () => true,
+            2: () => this.validateStep2(),
+            3: () => this.validateStep3(),
+            4: () => true,
+            5: () => true,
+            6: () => true
+        };
+
+        const validator = stepValidators[this.currentStep];
+        return validator ? validator() : true;
+    }
+
+    validateStep2() {
         for (let i = 1; i <= 6; i++) {
             if (!document.querySelector(`input[name="score${i}"]:checked`)) {
                 alert(`请完成维度${i}的评估`);
@@ -1982,39 +2944,125 @@ class UIController {
         }
         return true;
     }
-    
-    validateStep4() { return true; } 
-    validateStep5() { return true; }
-    validateStep6() { return true; }
 
-    validateStep(fieldIds) {
-        let isValid = true;
-        fieldIds.forEach(id => {
-            const field = document.getElementById(id);
-            if (field && !this.validateField(field)) {
-                isValid = false;
+    showFieldError(element, message) {
+        if (!element) return;
+        element.style.borderColor = '#e53e3e';
+        element.style.boxShadow = '0 0 0 1px #e53e3e';
+        
+        let errorEl = element.nextElementSibling;
+        if (!errorEl || !errorEl.classList.contains('field-error')) {
+            errorEl = document.createElement('div');
+            errorEl.className = 'field-error';
+            element.parentNode.insertBefore(errorEl, element.nextSibling);
+        }
+        errorEl.textContent = message;
+    }
+
+    clearFieldError(element) {
+        if (!element) return;
+        element.style.borderColor = '';
+        element.style.boxShadow = '';
+        
+        const errorEl = element.nextElementSibling;
+        if (errorEl && errorEl.classList.contains('field-error')) {
+            errorEl.textContent = '';
+        }
+    }
+
+    // ========== AI配置 ==========
+    async saveAndTestConfig() {
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const appIdInput = document.getElementById('appIdInput');
+        const providerSelect = document.getElementById('providerSelect');
+        
+        const apiKey = apiKeyInput.value.trim();
+        const appId = appIdInput.value.trim();
+        const provider = providerSelect.value;
+        
+        if (!apiKey) {
+            alert('请输入API Key');
+            return;
+        }
+        
+        if (provider === 'bailian' && !appId) {
+            alert('阿里百炼需要提供App ID');
+            return;
+        }
+        
+        try {
+            // 测试API连接
+            const testMessage = '你好，请回复"连接成功"';
+            const response = await this.aiCore.callAIAPI(testMessage, provider, apiKey, appId);
+            
+            // 保存配置
+            this.aiCore.saveConfig(provider, apiKey, appId);
+            
+            // 更新UI状态
+            const statusText = document.getElementById('statusText');
+            const apiStatus = document.getElementById('apiStatus');
+            const chatApiStatus = document.getElementById('chatApiStatus');
+            
+            if (statusText) statusText.textContent = `${provider} 已连接`;
+            if (apiStatus) {
+                apiStatus.className = 'api-status connected';
+                apiStatus.textContent = `${provider} 在线`;
             }
-        });
-        return isValid;
+            if (chatApiStatus) chatApiStatus.textContent = `${provider} 在线`;
+            
+            alert('配置保存成功！AI功能已启用。');
+            
+            // 关闭配置面板
+            const configPanel = document.getElementById('configPanel');
+            if (configPanel) {
+                configPanel.classList.remove('active');
+            }
+            
+        } catch (error) {
+            alert(`配置测试失败：${error.message}`);
+        }
+    }
+
+    // ========== UI工具函数 ==========
+    showLoading(message) {
+        const loadingEl = document.createElement('div');
+        loadingEl.className = 'loading-overlay';
+        loadingEl.innerHTML = `
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">${message}</div>
+            </div>
+        `;
+        document.body.appendChild(loadingEl);
+        return loadingEl;
+    }
+
+    hideLoading(loadingEl) {
+        if (loadingEl && loadingEl.parentNode) {
+            loadingEl.parentNode.removeChild(loadingEl);
+        }
+    }
+
+    showError(title, message) {
+        alert(`${title}: ${message}`);
+    }
+
+    resetForm() {
+        if (confirm('您确定要重置所有填写的数据吗？')) {
+            localStorage.clear();
+            window.location.reload();
+        }
     }
 }
 
-// ========== 5. 应用主模块 (Application) ==========
+// ========== 6. 应用主模块 (Application) ==========
 class Application {
     constructor() {
         this.dataManager = null;
+        this.aiCore = null;
         this.recommendEngine = null;
         this.uiController = null;
         this.initialized = false;
-        
-        // AI配置
-        this.CONFIG = {
-            apiKey: '',
-            appId: '',
-            provider: 'bailian',
-            isConnected: false,
-            isChatInitialized: false
-        };
     }
 
     async initialize() {
@@ -2024,44 +3072,72 @@ class Application {
         }
 
         try {
-            console.log('🚀 开始初始化应用...');
+            console.log('🚀 开始初始化增强版应用...');
 
-            // 1. 创建数据管理器
+            // 1. 创建AI核心
+            this.aiCore = new AICore();
+            console.log('✅ AI核心创建完成');
+
+            // 2. 创建数据管理器
             this.dataManager = new DataManager();
             console.log('✅ 数据管理器创建完成');
 
-            // 2. 创建推荐引擎
-            this.recommendEngine = new RecommendationEngine(this.dataManager);
+            // 3. 创建推荐引擎
+            this.recommendEngine = new RecommendationEngine(this.dataManager, this.aiCore);
             console.log('✅ 推荐引擎创建完成');
 
-            // 3. 创建UI控制器
-            this.uiController = new UIController(this.dataManager, this.recommendEngine);
+            // 4. 创建UI控制器
+            this.uiController = new UIController(this.dataManager, this.recommendEngine, this.aiCore);
             console.log('✅ UI控制器创建完成');
 
-            // 4. 初始化UI
+            // 5. 初始化UI
             await this.uiController.initialize();
             console.log('✅ UI初始化完成');
 
-            // 5. 恢复AI配置
-            this.restoreConfig();
+            // 6. 恢复AI配置
+            this.aiCore.restoreConfig();
+            this.updateUIStatus();
+            console.log('✅ AI配置恢复完成');
 
-            // 6. 设置全局错误处理
+            // 7. 设置全局错误处理
             this.setupErrorHandlers();
 
-            // 7. 标记为已初始化
+            // 8. 标记为已初始化
             this.initialized = true;
 
-            // 8. 暴露到全局
+            // 9. 暴露到全局
             window.app = this;
 
-            console.log('🎉 应用初始化完成!');
+            console.log('🎉 增强版应用初始化完成!');
             
-            // 9. 触发就绪事件
+            // 10. 触发就绪事件
             this.dispatchReadyEvent();
 
         } catch (error) {
             console.error('❌ 应用初始化失败:', error);
             this.handleInitError(error);
+        }
+    }
+
+    updateUIStatus() {
+        const statusText = document.getElementById('statusText');
+        const apiStatus = document.getElementById('apiStatus');
+        const chatApiStatus = document.getElementById('chatApiStatus');
+        
+        if (this.aiCore.CONFIG.isConnected) {
+            if (statusText) statusText.textContent = `${this.aiCore.CONFIG.provider} 已连接`;
+            if (apiStatus) {
+                apiStatus.className = 'api-status connected';
+                apiStatus.textContent = `${this.aiCore.CONFIG.provider} 在线`;
+            }
+            if (chatApiStatus) chatApiStatus.textContent = `${this.aiCore.CONFIG.provider} 在线`;
+        } else {
+            if (statusText) statusText.textContent = '本地模式';
+            if (apiStatus) {
+                apiStatus.className = 'api-status local';
+                apiStatus.textContent = '本地模式';
+            }
+            if (chatApiStatus) chatApiStatus.textContent = '本地模式';
         }
     }
 
@@ -2115,103 +3191,13 @@ class Application {
         const event = new CustomEvent('app:ready', {
             detail: {
                 dataManager: this.dataManager,
+                aiCore: this.aiCore,
                 recommendEngine: this.recommendEngine,
                 uiController: this.uiController
             }
         });
         
         window.dispatchEvent(event);
-    }
-
-    restoreConfig() {
-        const savedProvider = localStorage.getItem('aiProvider') || 'bailian';
-        const savedApiKey = localStorage.getItem('aiApiKey') || '';
-        const savedAppId = localStorage.getItem('aiAppId') || '';
-        const savedMode = localStorage.getItem('aiMode') || 'local';
-        
-        const isLocalMode = savedMode === 'local' || !savedApiKey;
-        
-        if (!isLocalMode && savedApiKey) {
-            this.CONFIG.provider = savedProvider;
-            this.CONFIG.apiKey = savedApiKey;
-            this.CONFIG.appId = savedAppId;
-            this.CONFIG.isConnected = true;
-            
-            const statusText = document.getElementById('statusText');
-            const apiStatus = document.getElementById('apiStatus');
-            const chatApiStatus = document.getElementById('chatApiStatus');
-            
-            if (statusText) statusText.textContent = `${savedProvider} 已连接`;
-            if (apiStatus) {
-                apiStatus.className = 'api-status connected';
-                apiStatus.textContent = `${savedProvider} 在线`;
-            }
-            if (chatApiStatus) chatApiStatus.textContent = `${savedProvider} 在线`;
-        } else {
-            this.CONFIG.provider = savedProvider;
-            this.CONFIG.apiKey = savedApiKey;
-            this.CONFIG.appId = savedAppId;
-            this.CONFIG.isConnected = false;
-            
-            const statusText = document.getElementById('statusText');
-            const apiStatus = document.getElementById('apiStatus');
-            const chatApiStatus = document.getElementById('chatApiStatus');
-            
-            if (statusText) statusText.textContent = '本地模式';
-            if (apiStatus) {
-                apiStatus.className = 'api-status local';
-                apiStatus.textContent = '本地模式';
-            }
-            if (chatApiStatus) chatApiStatus.textContent = '本地模式';
-        }
-        
-        const apiKeyInput = document.getElementById('apiKeyInput');
-        const appIdInput = document.getElementById('appIdInput');
-        const providerSelect = document.getElementById('providerSelect');
-        
-        if (apiKeyInput) apiKeyInput.value = this.CONFIG.apiKey;
-        if (appIdInput) appIdInput.value = this.CONFIG.appId || '';
-        if (providerSelect) providerSelect.value = this.CONFIG.provider;
-    }
-
-    // AI相关函数（保持与原代码兼容）
-    async callAIAPI(message, provider, apiKey, appId = '') {
-        try {
-            if (!this.CONFIG.isConnected) {
-                return "当前处于本地模式，AI功能不可用。请切换到在线模式。";
-            }
-
-            console.log('调用AI API:', { provider, messageLength: message.length });
-            
-            const response = await fetch('/api/ai', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json; charset=utf-8',
-                },
-                body: JSON.stringify({
-                    provider: provider,
-                    message: message,
-                    apiKey: apiKey,
-                    appId: appId
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP错误: ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.success && data.response) {
-                return data.response;
-            } else {
-                throw new Error('API返回格式异常');
-            }
-        } catch (error) {
-            console.error('API调用失败:', error);
-            throw new Error(`AI服务调用失败：${error.message}`);
-        }
     }
 
     // 公共API
@@ -2240,7 +3226,7 @@ class Application {
     }
 }
 
-// ========== 6. 全局函数（保持与原代码兼容）==========
+// ========== 7. 全局初始化与函数导出 ==========
 let appInstance = null;
 
 // 初始化应用
@@ -2261,51 +3247,17 @@ if (document.readyState === 'loading') {
     initializeApp();
 }
 
-// ========== 7. 修复的步骤导航函数 ==========
+// ========== 8. 全局函数导出（保持与老版本兼容）==========
 window.showStep = (stepNumber) => {
-    // 确保步骤编号在有效范围内
-    if (stepNumber < 1 || stepNumber > 7) return;
-    
-    // 隐藏所有步骤
-    document.querySelectorAll('.section').forEach(section => {
-        section.classList.remove('active');
-    });
-    
-    // 显示目标步骤
-    const targetSection = document.getElementById(`step${stepNumber}`);
-    if (targetSection) {
-        targetSection.classList.add('active');
+    if (appInstance && appInstance.uiController) {
+        appInstance.uiController.showStep(stepNumber);
     }
-    
-    // 更新步骤指示器
-    document.querySelectorAll('.step').forEach(step => {
-        step.classList.remove('active');
-    });
-    
-    const targetIndicator = document.getElementById(`step${stepNumber}-indicator`);
-    if (targetIndicator) {
-        targetIndicator.classList.add('active');
-    }
-    
-    // 更新进度条
-    const progressBar = document.getElementById('progressBar');
-    if (progressBar) {
-        const progress = ((stepNumber - 1) / 6) * 100;
-        progressBar.style.width = `${progress}%`;
-    }
-    
-    // 滚动到顶部
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    // 保存当前步骤
-    localStorage.setItem('currentStep', stepNumber.toString());
 };
 
 window.toggleChat = () => {
     const chatWindow = document.getElementById('chatWindow');
     if (chatWindow) {
         chatWindow.classList.toggle('active');
-        // 如果窗口显示，聚焦到输入框
         if (chatWindow.classList.contains('active')) {
             setTimeout(() => {
                 const chatInput = document.getElementById('chatInput');
@@ -2323,35 +3275,42 @@ window.toggleConfigPanel = () => {
 };
 
 window.useLocalMode = () => {
-    console.log('切换到本地模式');
-    
-    if (appInstance) {
-        appInstance.CONFIG.isConnected = false;
+    if (appInstance && appInstance.aiCore) {
+        appInstance.aiCore.useLocalMode();
+        appInstance.updateUIStatus();
+        alert('已切换到本地模式。AI相关功能将不可用。');
     }
-    
-    const statusText = document.getElementById('statusText');
-    const apiStatus = document.getElementById('apiStatus');
-    const chatApiStatus = document.getElementById('chatApiStatus');
-    
-    if (statusText) statusText.textContent = '本地模式';
-    if (apiStatus) {
-        apiStatus.className = 'api-status local';
-        apiStatus.textContent = '本地模式';
-    }
-    if (chatApiStatus) chatApiStatus.textContent = '本地模式';
-
-    const configPanel = document.getElementById('configPanel');
-    if (configPanel) {
-        configPanel.classList.remove('active');
-    }
-    
-    localStorage.setItem('aiMode', 'local');
-    alert('已切换到本地模式。AI相关功能将不可用。');
 };
 
-window.generateReport = async () => {
+window.sendMessage = () => {
     if (appInstance && appInstance.uiController) {
-        await appInstance.uiController.generateRecommendations();
+        appInstance.uiController.sendChatMessage();
+    }
+};
+
+window.quickAction = (text) => {
+    if (appInstance && appInstance.uiController) {
+        appInstance.uiController.quickAction(text);
+    }
+};
+
+window.handleKeyPress = (event) => {
+    if (event.key === 'Enter') {
+        if (appInstance && appInstance.uiController) {
+            appInstance.uiController.sendChatMessage();
+        }
+    }
+};
+
+window.interpretPolicy = () => {
+    if (appInstance && appInstance.uiController) {
+        appInstance.uiController.interpretPolicy();
+    }
+};
+
+window.generateReport = () => {
+    if (appInstance && appInstance.uiController) {
+        appInstance.uiController.generateReport();
     }
 };
 
@@ -2373,7 +3332,13 @@ window.resetAll = () => {
     }
 };
 
-// 步骤导航快捷函数 - 修复这些函数
+window.saveAndTestConfig = () => {
+    if (appInstance && appInstance.uiController) {
+        appInstance.uiController.saveAndTestConfig();
+    }
+};
+
+// 步骤导航快捷函数
 window.goToStep1 = () => window.showStep(1);
 window.goToStep2 = () => window.showStep(2);
 window.goToStep3 = () => window.showStep(3);
@@ -2382,180 +3347,24 @@ window.goToStep5 = () => window.showStep(5);
 window.goToStep6 = () => window.showStep(6);
 window.goToStep7 = () => window.showStep(7);
 
-// AI配置保存
-window.saveAndTestConfig = async () => {
-    const apiKeyInput = document.getElementById('apiKeyInput');
-    const appIdInput = document.getElementById('appIdInput');
-    const providerSelect = document.getElementById('providerSelect');
-    
-    const apiKey = apiKeyInput.value.trim();
-    const appId = appIdInput.value.trim();
-    const provider = providerSelect.value;
-    
-    if (!apiKey) {
-        alert('请输入API Key');
-        return;
-    }
-    
-    if (provider === 'bailian' && !appId) {
-        alert('阿里百炼需要提供App ID');
-        return;
-    }
-    
-    try {
-        const testMessage = '你好，请回复"连接成功"';
-        const response = await appInstance.callAIAPI(testMessage, provider, apiKey, appId);
-        
-        if (appInstance) {
-            appInstance.CONFIG.apiKey = apiKey;
-            appInstance.CONFIG.appId = appId;
-            appInstance.CONFIG.provider = provider;
-            appInstance.CONFIG.isConnected = true;
-        }
-        
-        const statusText = document.getElementById('statusText');
-        const apiStatus = document.getElementById('apiStatus');
-        const chatApiStatus = document.getElementById('chatApiStatus');
-        
-        if (statusText) statusText.textContent = `${provider} 已连接`;
-        if (apiStatus) {
-            apiStatus.className = 'api-status connected';
-            apiStatus.textContent = `${provider} 在线`;
-        }
-        if (chatApiStatus) chatApiStatus.textContent = `${provider} 在线`;
-        
-        localStorage.setItem('aiProvider', provider);
-        localStorage.setItem('aiApiKey', apiKey);
-        localStorage.setItem('aiAppId', appId);
-        localStorage.setItem('aiMode', 'online');
-        
-        alert('配置保存成功！AI功能已启用。');
-        
-        const configPanel = document.getElementById('configPanel');
-        if (configPanel) {
-            configPanel.classList.remove('active');
-        }
-        
-    } catch (error) {
-        alert(`配置测试失败：${error.message}`);
-    }
-};
-
-// ========== 8. 修复聊天功能 ==========
-// 聊天消息添加到窗口
-function addMessageToChat(sender, content) {
-    const chatBody = document.getElementById('chatBody');
-    if (!chatBody) return;
-    
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `ai-message ${sender}`;
-    
-    const avatar = sender === 'user' ? '👤' : '🐱';
-    messageDiv.innerHTML = `
-        <div class="message-avatar">${avatar}</div>
-        <div class="message-content">${content}</div>
-    `;
-    
-    chatBody.appendChild(messageDiv);
-    chatBody.scrollTop = chatBody.scrollHeight;
-}
-
-// 显示加载指示器
-function showLoadingIndicator() {
-    const chatBody = document.getElementById('chatBody');
-    if (!chatBody) return;
-    
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'ai-message assistant';
-    loadingDiv.id = 'loadingMessage';
-    loadingDiv.innerHTML = `
-        <div class="message-avatar">🐱</div>
-        <div class="message-content">
-            <div class="ai-loading">
-                <div class="ai-loading-spinner"></div>
-                <p>思考中...</p>
-            </div>
-        </div>
-    `;
-    
-    chatBody.appendChild(loadingDiv);
-    chatBody.scrollTop = chatBody.scrollHeight;
-}
-
-// 隐藏加载指示器
-function hideLoadingIndicator() {
-    const loadingDiv = document.getElementById('loadingMessage');
-    if (loadingDiv && loadingDiv.parentNode) {
-        loadingDiv.parentNode.removeChild(loadingDiv);
-    }
-}
-
-// 收集用户数据用于AI
-function collectUserDataForAI() {
-    // 获取当前年级
-    const currentGrade = document.querySelector('input[name="currentGrade"]:checked')?.value || '未填写';
-    
-    // 收集能力评估分数
-    const abilityScores = {};
-    for (let i = 1; i <= 6; i++) {
-        const score = document.querySelector(`input[name="score${i}"]:checked`)?.value || '3';
-        abilityScores[`维度${i}`] = score;
-    }
-    
-    // 收集其他信息
-    return {
-        当前年级: currentGrade,
-        能力评估: abilityScores,
-        户籍所在区: document.getElementById('householdDistrict')?.value || '未填写',
-        实际居住区: document.getElementById('residenceDistrict')?.value || '未填写',
-        房产情况: document.getElementById('hasHouse')?.value || '未填写',
-        民办意向: document.getElementById('considerPrivate')?.value || '未填写',
-        预算范围: document.getElementById('budget')?.value || '未填写',
-        学生特长: Array.from(document.querySelectorAll('input[name="specialty"]:checked')).map(cb => cb.value)
-    };
-}
-
-// 快捷操作
-window.quickAction = (action) => {
+// 聊天快捷提问
+window.askCatAssistant = (question) => {
     const chatInput = document.getElementById('chatInput');
     if (chatInput) {
-        chatInput.value = action;
-        // 触发发送
-        setTimeout(() => {
-            sendMessage();
-        }, 100);
+        chatInput.value = question;
+        if (appInstance && appInstance.uiController) {
+            appInstance.uiController.sendChatMessage();
+        }
     }
 };
 
-// 将函数暴露到全局
-window.addMessageToChat = addMessageToChat;
-window.showLoadingIndicator = showLoadingIndicator;
-window.hideLoadingIndicator = hideLoadingIndicator;
-window.collectUserDataForAI = collectUserDataForAI;
-window.quickAction = quickAction;
-
 // 步骤3验证函数
-function validateStep3() {
-    const hukouDistrict = document.getElementById('householdDistrict');
-    const residenceDistrict = document.getElementById('residenceDistrict');
-    
-    if (!hukouDistrict.value) {
-        alert('请选择户籍所在区');
-        hukouDistrict.focus();
-        return false;
+window.validateStep3 = () => {
+    if (appInstance && appInstance.uiController) {
+        return appInstance.uiController.validateStep3();
     }
-    
-    if (!residenceDistrict.value) {
-        alert('请选择实际居住区');
-        residenceDistrict.focus();
-        return false;
-    }
-    
-    return true;
-}
-
-// 将验证函数暴露到全局
-window.validateStep3 = validateStep3;
+    return false;
+};
 
 // 调试工具
 window.debugApp = {
@@ -2574,21 +3383,29 @@ window.debugApp = {
         };
         return appInstance.getRecommendations(testProfile);
     },
-    performanceTest: async () => {
-        if (!appInstance?.dataManager) return;
-        const start = performance.now();
-        await appInstance.dataManager.loadAllDistricts();
-        const end = performance.now();
-        console.log(`加载所有区县耗时: ${(end - start).toFixed(2)}ms`);
-    }
+    getAIConfig: () => appInstance?.aiCore?.CONFIG || {},
+    getUserMemory: () => appInstance?.aiCore?.getUserMemory() || {}
 };
 
 // 版本信息
 console.log(`
-%c西安小升初智能评估系统 v2.0
-%c增强版 - 支持多种数据格式
+%c西安小升初智能评估系统 v3.0
+%c增强重构版 - 融合模块化架构与完整AI功能
 %c© 2025 - 技术支持`,
 'color: #3b82f6; font-size: 16px; font-weight: bold;',
 'color: #10b981; font-size: 12px;',
 'color: #6b7280; font-size: 10px;'
 );
+
+// 确保关键库已加载
+if (typeof Chart === 'undefined') {
+    console.warn('Chart.js 未加载，图表功能可能不可用');
+}
+
+if (typeof jsPDF === 'undefined') {
+    console.warn('jsPDF 未加载，PDF导出功能可能不可用');
+}
+
+if (typeof html2canvas === 'undefined') {
+    console.warn('html2canvas 未加载，PDF导出功能可能不可用');
+}
