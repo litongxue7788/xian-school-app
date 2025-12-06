@@ -165,7 +165,7 @@ let isDragging = false;
 let offsetX, offsetY;
 let abilityChartInstance = null;
 
-// 全局记忆系统
+// 全局记忆系统 - 增强版
 let USER_MEMORY = JSON.parse(localStorage.getItem("USER_MEMORY") || "{}");
 
 function saveUserMemory(key, value) {
@@ -177,17 +177,60 @@ function getUserMemory() {
     return USER_MEMORY;
 }
 
-// 收集用户填写数据
+// 增强版：收集用户填写数据
 function collectUserData() {
     const data = {
+        // 基本信息
+        studentName: document.getElementById("studentName")?.value || "",
+        studentGender: document.getElementById("studentGender")?.value || "",
+        currentSchool: document.getElementById("currentSchool")?.value || "",
         grade: document.getElementById("grade")?.value || "",
+        
+        // 户籍信息
         hukouDistrict: document.getElementById("hukouDistrict")?.value || document.getElementById("householdDistrict")?.value || "",
         hukouStreet: document.getElementById("hukouStreet")?.value || document.getElementById("householdStreet")?.value || "",
+        householdAddress: document.getElementById("householdAddress")?.value || "",
+        
+        // 居住信息
         liveDistrict: document.getElementById("liveDistrict")?.value || document.getElementById("residenceDistrict")?.value || "",
         liveStreet: document.getElementById("liveStreet")?.value || document.getElementById("residenceStreet")?.value || "",
-        abilityScore: Number(document.getElementById("abilityScore")?.value || 3),
+        residenceAddress: document.getElementById("residenceAddress")?.value || "",
+        residenceType: document.getElementById("residenceType")?.value || "",
+        
+        // 房产信息
+        hasHouse: document.getElementById("hasHouse")?.value || "",
+        propertyType: document.getElementById("propertyType")?.value || "",
+        propertyYears: document.getElementById("propertyYears")?.value || "",
+        
+        // 能力评估
+        abilityScore1: document.querySelector('input[name="score1"]:checked')?.value || 3,
+        abilityScore2: document.querySelector('input[name="score2"]:checked')?.value || 3,
+        abilityScore3: document.querySelector('input[name="score3"]:checked')?.value || 3,
+        abilityScore4: document.querySelector('input[name="score4"]:checked')?.value || 3,
+        abilityScore5: document.querySelector('input[name="score5"]:checked')?.value || 3,
+        abilityScore6: document.querySelector('input[name="score6"]:checked')?.value || 3,
+        
+        // 民办意向与预算
+        considerPrivate: document.getElementById("considerPrivate")?.value || "",
         budget: Number(document.getElementById("budget")?.value || 0),
-        schoolType: document.getElementById("schoolType")?.value || "不限"
+        crossDistrictPreference: document.getElementById("crossDistrictPreference")?.value || "",
+        acceptLottery: document.getElementById("acceptLottery")?.value || "",
+        
+        // 学业规划
+        academicGoals: document.getElementById("academicGoals")?.value || "",
+        
+        // 学生特长（多选）
+        specialties: Array.from(document.querySelectorAll('input[name="specialty"]:checked, .strength-check:checked'))
+            .map(el => el.value),
+            
+        // 教育理念（多选）
+        educationConcepts: Array.from(document.querySelectorAll('input[name="educationConcept"]:checked, .philosophy-check:checked'))
+            .map(el => el.value),
+            
+        // 其他信息
+        sameDistrict: document.getElementById("sameDistrict")?.checked || false,
+        sameStreet: document.getElementById("sameStreet")?.checked || false,
+        inSchoolDistrict: document.getElementById("inSchoolDistrict")?.checked || false
     };
 
     // 记忆同步
@@ -196,24 +239,56 @@ function collectUserData() {
     return data;
 }
 
-// 收集用户数据供AI使用
+// 增强版：收集用户数据供AI使用
 function collectUserDataForAI() {
     const userData = {
+        // 学生基本信息
+        学生姓名: document.getElementById('studentName')?.value || '',
+        学生性别: document.getElementById('studentGender')?.value || '',
+        所在小学: document.getElementById('currentSchool')?.value || '',
+        当前年级: document.querySelector('input[name="currentGrade"]:checked')?.value || '',
+        
+        // 户籍与居住信息 - 完整收集
+        户籍所在区: document.getElementById('householdDistrict')?.value || '',
+        户籍所在街道: document.getElementById('householdStreet')?.value || '',
+        户籍详细地址: document.getElementById('householdAddress')?.value || '',
+        实际居住区: document.getElementById('residenceDistrict')?.value || '',
+        实际居住街道: document.getElementById('residenceStreet')?.value || '',
+        居住详细地址: document.getElementById('residenceAddress')?.value || '',
+        居住性质: document.getElementById('residenceType')?.value || '',
+        户籍区与居住区相同: document.getElementById('sameDistrict')?.checked || false,
+        户籍街道与居住街道相同: document.getElementById('sameStreet')?.checked || false,
+        在学区内居住: document.getElementById('inSchoolDistrict')?.checked || false,
+        
+        // 学区房产信息
+        学区房情况: document.getElementById('hasHouse')?.value || '',
+        房产证类型: document.getElementById('propertyType')?.value || '',
+        房产持有时间: document.getElementById('propertyYears')?.value || '',
+        
+        // 能力评估(6个维度)
         能力评估: {},
-        当前年级: '',
-        户籍所在区: '',
-        实际居住区: '',
-        房产情况: '',
-        民办意向: '',
-        预算范围: '',
-        学业规划: '',
-        学生特长: [],
-        教育理念偏好: []
+        
+        // 民办意向与预算
+        是否考虑民办: document.getElementById('considerPrivate')?.value || '',
+        可接受的跨区范围: document.getElementById('crossDistrictPreference')?.value || '',
+        民办学校预算: document.getElementById('budget')?.value || '',
+        对摇号不确定性的态度: document.getElementById('acceptLottery')?.value || '',
+        
+        // 学业规划
+        学业规划: document.getElementById('academicGoals')?.value || '',
+        
+        // 学生特长(多选)
+        学生特长: Array.from(document.querySelectorAll('input[name="specialty"]:checked, .strength-check:checked'))
+            .map(el => el.value),
+        
+        // 教育理念偏好(多选)
+        教育理念偏好: Array.from(document.querySelectorAll('input[name="educationConcept"]:checked, .philosophy-check:checked'))
+            .map(el => el.value),
+        
+        // 其他评估结果
+        预估入学顺位: document.getElementById('admissionPriority')?.textContent || '',
+        顺位理由: document.getElementById('priorityReason')?.textContent || ''
     };
-    
-    // 收集当前年级
-    const currentGrade = document.querySelector('input[name="currentGrade"]:checked');
-    if (currentGrade) userData.当前年级 = currentGrade.value;
     
     // 收集能力评估数据（从单选按钮）
     const scoreRadios = document.querySelectorAll('input[type="radio"]:checked');
@@ -225,38 +300,95 @@ function collectUserDataForAI() {
         }
     });
     
-    // 收集户籍和居住信息
-    const householdDistrict = document.getElementById('householdDistrict');
-    const residenceDistrict = document.getElementById('residenceDistrict');
-    if (householdDistrict) userData.户籍所在区 = householdDistrict.value;
-    if (residenceDistrict) userData.实际居住区 = residenceDistrict.value;
-    
-    // 收集其他表单数据
-    const propertyType = document.getElementById('propertyType');
-    if (propertyType) userData.房产情况 = propertyType.value;
-    
-    const considerPrivate = document.getElementById('considerPrivate');
-    if (considerPrivate) userData.民办意向 = considerPrivate.value;
-    
-    const budget = document.getElementById('budget');
-    if (budget) userData.预算范围 = budget.value;
-    
-    const academicGoals = document.getElementById('academicGoals');
-    if (academicGoals) userData.学业规划 = academicGoals.value;
-    
-    // 收集特长（多选）
-    const specialties = document.querySelectorAll('input[name="specialty"]:checked, .strength-check:checked');
-    specialties.forEach(specialty => {
-        userData.学生特长.push(specialty.value);
-    });
-    
-    // 收集教育理念（多选）
-    const educationConcepts = document.querySelectorAll('input[name="educationConcept"]:checked, .philosophy-check:checked');
-    educationConcepts.forEach(concept => {
-        userData.教育理念偏好.push(concept.value);
-    });
-    
     return userData;
+}
+
+// 增强版：获取用户完整信息字符串（用于AI提示词）
+function getUserFullInfoString() {
+    const userData = collectUserDataForAI();
+    let infoString = "【用户完整填写信息】\n\n";
+    
+    // 基本信息
+    infoString += "📋 学生基本信息：\n";
+    if (userData.学生姓名) infoString += `- 姓名：${userData.学生姓名}\n`;
+    if (userData.学生性别) infoString += `- 性别：${userData.学生性别}\n`;
+    if (userData.所在小学) infoString += `- 所在小学：${userData.所在小学}\n`;
+    if (userData.当前年级) infoString += `- 当前年级：${userData.当前年级}\n`;
+    
+    // 户籍信息
+    infoString += "\n🏠 户籍信息：\n";
+    if (userData.户籍所在区) infoString += `- 户籍区：${userData.户籍所在区}\n`;
+    if (userData.户籍所在街道) infoString += `- 户籍街道：${userData.户籍所在街道}\n`;
+    if (userData.户籍详细地址) infoString += `- 户籍地址：${userData.户籍详细地址}\n`;
+    
+    // 居住信息
+    infoString += "\n📍 实际居住信息：\n";
+    if (userData.实际居住区) infoString += `- 居住区：${userData.实际居住区}\n`;
+    if (userData.实际居住街道) infoString += `- 居住街道：${userData.实际居住街道}\n`;
+    if (userData.居住详细地址) infoString += `- 居住地址：${userData.居住详细地址}\n`;
+    if (userData.居住性质) infoString += `- 居住性质：${userData.居住性质}\n`;
+    
+    // 房产信息
+    infoString += "\n🏡 房产情况：\n";
+    if (userData.学区房情况) infoString += `- 学区房：${userData.学区房情况}\n`;
+    if (userData.房产证类型) infoString += `- 房产证类型：${userData.房产证类型}\n`;
+    if (userData.房产持有时间) infoString += `- 持有时间：${userData.房产持有时间}\n`;
+    
+    // 关系判断
+    infoString += "\n🔗 户籍与居住关系：\n";
+    infoString += `- 户籍区与居住区相同：${userData.户籍区与居住区相同 ? '是' : '否'}\n`;
+    infoString += `- 户籍街道与居住街道相同：${userData.户籍街道与居住街道相同 ? '是' : '否'}\n`;
+    infoString += `- 在学区内居住：${userData.在学区内居住 ? '是' : '否'}\n`;
+    
+    // 能力评估
+    infoString += "\n📊 能力评估：\n";
+    if (userData.能力评估['维度1']) infoString += `- 学业成绩：${userData.能力评估['维度1']}分\n`;
+    if (userData.能力评估['维度2']) infoString += `- 综合素养：${userData.能力评估['维度2']}分\n`;
+    if (userData.能力评估['维度3']) infoString += `- 学习习惯：${userData.能力评估['维度3']}分\n`;
+    if (userData.能力评估['维度4']) infoString += `- 心理素质：${userData.能力评估['维度4']}分\n`;
+    if (userData.能力评估['维度5']) infoString += `- 家庭支持：${userData.能力评估['维度5']}分\n`;
+    if (userData.能力评估['维度6']) infoString += `- 学科倾向：${userData.能力评估['维度6']}分\n`;
+    
+    // 民办意向
+    infoString += "\n🎯 民办意向：\n";
+    if (userData.是否考虑民办) infoString += `- 是否考虑民办：${userData.是否考虑民办}\n`;
+    if (userData.民办学校预算) infoString += `- 预算：${userData.民办学校预算}\n`;
+    if (userData.可接受的跨区范围) infoString += `- 跨区范围：${userData.可接受的跨区范围}\n`;
+    if (userData.对摇号不确定性的态度) infoString += `- 摇号态度：${userData.对摇号不确定性的态度}\n`;
+    
+    // 学业规划
+    infoString += "\n📚 学业规划：\n";
+    if (userData.学业规划) infoString += `- ${userData.学业规划}\n`;
+    
+    // 学生特长
+    infoString += "\n🌟 学生特长：\n";
+    if (userData.学生特长 && userData.学生特长.length > 0) {
+        userData.学生特长.forEach(talent => {
+            infoString += `- ${talent}\n`;
+        });
+    } else {
+        infoString += "- 无\n";
+    }
+    
+    // 教育理念
+    infoString += "\n💡 教育理念偏好：\n";
+    if (userData.教育理念偏好 && userData.教育理念偏好.length > 0) {
+        userData.教育理念偏好.forEach(concept => {
+            infoString += `- ${concept}\n`;
+        });
+    } else {
+        infoString += "- 无\n";
+    }
+    
+    // 评估结果
+    if (userData.预估入学顺位) {
+        infoString += `\n📈 预估入学顺位：${userData.预估入学顺位}\n`;
+    }
+    if (userData.顺位理由) {
+        infoString += `📝 顺位理由：${userData.顺位理由}\n`;
+    }
+    
+    return infoString;
 }
 
 const STREET_DATA = {
@@ -298,7 +430,7 @@ async function callAIAPI(message, provider, apiKey, appId = '') {
         const response = await fetch('/api/ai', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json; charset=utf-8',
             },
             body: JSON.stringify({
                 provider: provider,
@@ -431,7 +563,7 @@ function useLocalMode() {
     console.log('本地模式切换完成');
 }
 
-// ========== 小猫助手功能（强化版本）==========
+// ========== 小猫助手功能（增强版）==========
 async function sendMessage() {
     const chatInput = document.getElementById('chatInput');
     const message = chatInput.value.trim();
@@ -451,10 +583,10 @@ async function sendMessage() {
         showLoadingIndicator();
         
         // 收集用户完整数据
+        const userFullInfo = getUserFullInfoString();
         const userData = collectUserDataForAI();
-        const userMemory = getUserMemory();
         
-        // 构建强化的AI提示词 - 修复版：移除了硬编码的文件路径引用
+        // 构建强化的AI提示词 - 增强版：包含完整用户信息
         const contextPrompt = `
 你是一个专业的西安小升初智能助手"小猫助手"。你拥有以下核心能力：
 
@@ -463,47 +595,49 @@ async function sendMessage() {
 2. 除西安市教育局官方公布的数据外，不允许猜测数据；
 3. 你只能使用西安市教育局官方认可的真实学校信息和学区划分信息；
 4. 若用户询问的学校不在官方公布的名单内，你必须回答"我目前数据库内还没有该学校的最新学区信息"；
-5. 禁止猜测、禁止编造、禁止杜撰。
+5. 禁止猜测、禁止编造、禁止杜撰；
+6. 你必须基于用户填写的所有信息进行分析，包括户籍地址、居住地址、房产情况等；
+7. 对于公办学校推荐，必须严格遵循户籍所在区的对口学区政策；
+8. 对于民办学校推荐，可以推荐全市范围内的学校，但要考虑用户的可接受跨区范围。
 
-【用户已填写信息 - 请严格基于这些真实信息分析】
-📋 学生基本信息：
-- 当前年级: ${userData.当前年级 || '未填写'}
-- 户籍所在区: ${userData.户籍所在区 || '未填写'}
-- 实际居住区: ${userData.实际居住区 || '未填写'}
-- 房产情况: ${userData.房产情况 || '未填写'}
-- 民办意向: ${userData.民办意向 || '未填写'}
-- 预算范围: ${userData.预算范围 || '未填写'}
-- 学业规划: ${userData.学业规划 || '未填写'}
-- 学生特长: ${userData.学生特长.join('、') || '无'}
-
-📊 能力评估得分：
-- 学业成绩: ${userData.能力评估['维度1'] || '未评估'}分
-- 综合素养: ${userData.能力评估['维度2'] || '未评估'}分
-- 学习习惯: ${userData.能力评估['维度3'] || '未评估'}分
-- 心理素质: ${userData.能力评估['维度4'] || '未评估'}分
-- 家庭支持: ${userData.能力评估['维度5'] || '未评估'}分
-- 学科倾向: ${userData.能力评估['维度6'] || '未评估'}分
+【用户已填写信息 - 这是用户填写的完整信息，请严格基于这些真实信息分析】
+${userFullInfo}
 
 【用户本次提问】
 ${message}
 
-【回答格式要求 - 请严格按照以下格式回答，不能缺项】
-📌 1. 学校基本信息
-📍 类型：公办/民办（必须准确）
-📍 区县：（必须准确）
-📍 对口学区（参考西安市教育局2025年学区划分）：
+【回答要求】
+1. 如果用户询问学校信息，请基于用户户籍和居住信息给出精准推荐
+2. 公办学校只能推荐户籍所在区内的对口学校（除非用户是随迁子女）
+3. 民办学校可以全市推荐，但要说明跨区情况和摇号概率
+4. 必须考虑用户填写的所有信息：姓名、地址、房产、能力评估、预算、特长等
+5. 如果信息不完整，请明确说明需要补充哪些信息
+6. 推荐学校时以列表/表格形式呈现，包含：学校名称、类型、区县、匹配度、推荐理由、入学概率
 
-📌 2. 入学顺位分析
-📍 用户当前户籍类型：（基于用户数据判断）
-📍 公办入学概率（房户一致/安置房/租住）：
+【回答格式要求】
+请按照以下格式回答：
 
-📌 3. 推荐理由（基于用户 memory）
+📊 基于您的完整信息分析：
+
+📍 入学顺位：${userData.预估入学顺位 || '待评估'}
+📍 户籍情况：${userData.户籍所在区 || '未填写'} ${userData.户籍所在街道 || ''}
+📍 居住情况：${userData.实际居住区 || '未填写'} ${userData.实际居住街道 || ''}
+
+🏫 学校推荐（基于2025年政策）：
+
+| 序号 | 学校名称 | 类型 | 区县 | 匹配度 | 推荐理由 | 入学/摇号概率 |
+|------|----------|------|------|--------|----------|---------------|
+| 1    |          |      |      |        |          |               |
+| 2    |          |      |      |        |          |               |
+| 3    |          |      |      |        |          |               |
+
+💡 个性化建议：
 （结合用户能力评估、特长、预算等进行个性化分析）
 
-📌 4. 来源引用
-- 教育局政策
-- 学校官网
-- 招生简章
+📌 来源引用：
+- 西安市教育局2025年招生政策
+- 学校官网/招生简章
+- 官方学区划分文件
 
 请确保回答准确、专业、不跑题。如果有任何不确定的信息，请明确说明"根据现有数据库，该信息暂未收录"。
         `;
@@ -553,7 +687,7 @@ function addMessageToChat(role, content) {
                 ${content}
                 <div class="source-info">
                     <span class="trust-badge trust-verified">✅ 数据准确</span>
-                    基于西安市2025年官方政策与真实学校数据库
+                    基于西安市2025年官方政策与真实学校数据库 · 基于用户完整信息分析
                 </div>
             </div>
         `;
@@ -573,7 +707,7 @@ function showLoadingIndicator() {
         <div class="message-avatar">🐱</div>
         <div class="message-content">
             <div class="ai-loading-spinner" style="width:20px;height:20px;"></div>
-            正在查询学校数据库并分析中...
+            正在分析您的完整信息并查询学校数据库...
         </div>
     `;
     chatBody.appendChild(loadingDiv);
@@ -598,18 +732,17 @@ async function quickAction(text) {
     try {
         showLoadingIndicator();
         
-        const userMemory = getUserMemory();
-        const userData = collectUserDataForAI();
+        const userFullInfo = getUserFullInfoString();
         
         let question = text;
         
-        // 根据快捷操作类型优化问题，包含用户记忆
+        // 根据快捷操作类型优化问题，包含用户完整信息
         if (text === '2026年小升初时间安排') {
-            question = `用户信息：${JSON.stringify(userMemory)}\n请基于以上用户情况，预测2026年西安小升初的时间安排和重要节点`;
+            question = `${userFullInfo}\n\n请基于以上用户完整情况，预测2026年西安小升初的时间安排和重要节点`;
         } else if (text === '民办学校有哪些') {
-            question = `用户预算：${userData.预算范围}\n请列出西安市主要的民办初中学校（基于西安市教育局2025年官方名单）`;
+            question = `${userFullInfo}\n\n请基于用户预算和跨区偏好，列出西安市适合的民办初中学校（基于西安市教育局2025年官方名单）`;
         } else if (text === '摇号政策') {
-            question = `用户户籍：${userData.户籍所在区}\n请详细解释西安市民办初中摇号政策的具体流程`;
+            question = `${userFullInfo}\n\n请基于用户户籍和居住情况，详细解释西安市民办初中摇号政策的具体流程`;
         }
         
         const response = await callAIAPI(
@@ -645,8 +778,8 @@ async function interpretPolicy() {
     try {
         showLoadingIndicator();
         
-        const userMemory = getUserMemory();
-        const question = `用户户籍信息：${userMemory.hukouDistrict || '未填写'}，居住信息：${userMemory.liveDistrict || '未填写'}\n请详细解读西安市小升初的入学顺位政策，包括房户一致、集体户、租房等不同情况的入学顺序，并分析用户的情况`;
+        const userFullInfo = getUserFullInfoString();
+        const question = `${userFullInfo}\n\n请详细解读西安市小升初的入学顺位政策，包括房户一致、集体户、租房等不同情况的入学顺序，并基于用户的完整信息分析具体入学顺位`;
         
         const response = await callAIAPI(
             question, 
@@ -662,11 +795,11 @@ async function interpretPolicy() {
         if (interpretationResult) {
             interpretationResult.innerHTML = `
                 <div style="background: #f0f9ff; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #3b82f6;">
-                    <h4 style="margin: 0 0 10px 0; color: #1e40af;">🤖 AI政策解读（基于用户情况）</h4>
+                    <h4 style="margin: 0 0 10px 0; color: #1e40af;">🤖 AI政策解读（基于您的完整信息）</h4>
                     <div style="line-height: 1.6; color: #374151;">${response}</div>
                     <div style="margin-top: 10px; font-size: 12px; color: #6b7280;">
                         <span class="trust-badge trust-verified">✅ 数据准确</span> 
-                        基于${CONFIG.provider}模型分析 · 严格参照学校数据库
+                        基于${CONFIG.provider}模型分析 · 严格参照学校数据库 · 结合用户完整信息
                     </div>
                 </div>
             `;
@@ -691,12 +824,12 @@ async function generateReport() {
     // 生成能力雷达图（包含AI分析）
     await generateAbilityChart();
     
-    // 显示学校推荐（AI生成）
-    await showSchoolRecommendations();
+    // 显示学校推荐（AI生成）- 增强版
+    await showEnhancedSchoolRecommendations();
     
     // AI生成时间规划和政策提醒
     if (CONFIG.isConnected) {
-        await generateAITimelineAndPolicy();
+        await generateEnhancedTimelineAndPolicy();
     } else {
         // 本地模式显示静态内容
         displayStaticTimelineAndPolicy();
@@ -709,7 +842,80 @@ async function generateReport() {
 function collectAllData() {
     console.log('收集所有表单数据...');
     const userData = collectUserDataForAI();
+    
+    // 计算并保存入学顺位
+    const admissionPriority = calculateAdmissionPriority(userData);
+    const priorityReason = getPriorityReason(userData);
+    
+    // 更新页面显示
+    const priorityElement = document.getElementById('admissionPriority');
+    const reasonElement = document.getElementById('priorityReason');
+    
+    if (priorityElement) priorityElement.textContent = admissionPriority;
+    if (reasonElement) reasonElement.textContent = priorityReason;
+    
+    // 保存到记忆
+    saveUserMemory('admissionPriority', admissionPriority);
+    saveUserMemory('priorityReason', priorityReason);
+    
     return userData;
+}
+
+// 计算入学顺位
+function calculateAdmissionPriority(userData) {
+    const 户籍区 = userData.户籍所在区 || '';
+    const 居住区 = userData.实际居住区 || '';
+    const 房产情况 = userData.房产证类型 || '';
+    const 居住性质 = userData.居住性质 || '';
+    
+    if (!户籍区) return '未填写户籍信息';
+    
+    // 随迁子女
+    if (户籍区 === '外地户籍' || 居住性质 === '租房' && !户籍区.includes('西安')) {
+        return '第四顺位（随迁子女）';
+    }
+    
+    // 房户一致
+    if (户籍区 === 居住区 && (房产情况.includes('自有') || 房产情况.includes('安置房'))) {
+        return '第一顺位（房户一致）';
+    }
+    
+    // 房户不一致
+    if (户籍区 !== 居住区 && (房产情况.includes('自有') || 房产情况.includes('安置房'))) {
+        return '第二顺位（房户不一致）';
+    }
+    
+    // 集体户
+    if (户籍区.includes('集体户')) {
+        return '第三顺位（集体户）';
+    }
+    
+    // 租房
+    if (居住性质 === '租房') {
+        return '第四顺位（租房）';
+    }
+    
+    return '待确认（请补充房产和居住信息）';
+}
+
+// 获取顺位理由
+function getPriorityReason(userData) {
+    const priority = calculateAdmissionPriority(userData);
+    
+    switch (priority) {
+        case '第一顺位（房户一致）':
+            return '户籍与房产地址一致，享受最优先入学资格';
+        case '第二顺位（房户不一致）':
+            return '户籍与房产地址不在同一区域，排序在房户一致之后';
+        case '第三顺位（集体户）':
+            return '集体户口，由教育局统筹安排入学';
+        case '第四顺位（随迁子女）':
+            return '随迁子女需提供居住证，由居住证所在区统筹安排';
+        case '第四顺位（租房）':
+            return '租房居住，排序在自有房产之后';
+        default:
+            return '请完善户籍、居住和房产信息以确定入学顺位';
+    }
 }
 
 // 计算能力得分函数
@@ -778,11 +984,11 @@ async function generateAbilityChart() {
     });
     
     // 调用AI生成能力分析
-    await generateAbilityAnalysis();
+    await generateEnhancedAbilityAnalysis();
 }
 
-// AI生成能力分析
-async function generateAbilityAnalysis() {
+// AI生成能力分析 - 增强版
+async function generateEnhancedAbilityAnalysis() {
     const analysisElement = document.getElementById('abilityAnalysis');
     if (!analysisElement) return;
     
@@ -802,36 +1008,27 @@ async function generateAbilityAnalysis() {
     
     try {
         const userData = collectUserDataForAI();
+        const userFullInfo = getUserFullInfoString();
         
         const prompt = `
 请根据以下学生完整信息，生成【深度个性化能力分析与改进建议】：
 
-【学生基本情况】
-- 当前年级: ${userData.当前年级 || '未填写'}
-- 学生特长: ${userData.学生特长.join('、') || '无'}
-- 学业规划: ${userData.学业规划 || '未填写'}
-- 户籍所在区: ${userData.户籍所在区 || '未填写'} 
-- 实际居住区: ${userData.实际居住区 || '未填写'}
-- 房产情况: ${userData.房产情况 || '未填写'}
-- 民办意向: ${userData.民办意向 || '未填写'}
+${userFullInfo}
 
-【能力评估详细数据】
-- 学业成绩: ${userData.能力评估['维度1'] || '未评估'}分
-- 综合素养: ${userData.能力评估['维度2'] || '未评估'}分  
-- 学习习惯: ${userData.能力评估['维度3'] || '未评估'}分
-- 心理素质: ${userData.能力评估['维度4'] || '未评估'}分
-- 家庭支持: ${userData.能力评估['维度5'] || '未评估'}分
-- 学科倾向: ${userData.能力评估['维度6'] || '未评估'}分
+【入学顺位分析】
+- 预估入学顺位：${calculateAdmissionPriority(userData)}
+- 顺位理由：${getPriorityReason(userData)}
 
 要求：
-1. 必须结合学生的年级(${userData.当前年级})分析发展需求
+1. 必须结合学生的所有填写信息进行综合分析
 2. 必须结合户籍(${userData.户籍所在区})和居住地(${userData.实际居住区})分析教育资源匹配
-3. 必须结合房产情况(${userData.房产情况})和民办意向(${userData.民办意向})给出升学策略建议
-4. 分析每个维度的具体表现和改进空间
-5. 给出针对性的能力提升建议和时间规划
+3. 必须结合房产情况(${userData.房产证类型})给出具体的升学策略建议
+4. 分析每个维度的具体表现和改进空间，给出量化建议
+5. 给出针对性的能力提升计划和时间安排
 6. 结合学生特长(${userData.学生特长.join('、')})推荐适合的发展方向
-7. 以家长易懂的语言表达，避免专业术语
-8. 返回HTML格式的分析内容
+7. 结合家庭预算(${userData.民办学校预算})和教育理念(${userData.教育理念偏好.join('、')})给出学校选择建议
+8. 以家长易懂的语言表达，使用具体案例说明
+9. 返回HTML格式的分析内容，包含标题、段落、列表等结构化内容
 
 请直接返回HTML内容，不要包含markdown标记。
 `;
@@ -840,13 +1037,13 @@ async function generateAbilityAnalysis() {
         
         analysisElement.innerHTML = `
             <div style="background: #f0f9ff; padding: 25px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 20px 0; min-height: 250px;">
-                <h4 style="margin: 0 0 15px 0; color: #1e40af;">🎯 AI深度能力分析</h4>
+                <h4 style="margin: 0 0 15px 0; color: #1e40af;">🎯 AI深度能力分析（基于您的完整信息）</h4>
                 <div style="line-height: 1.6; font-size: 14px; color: #374151;">
                     ${abilityAnalysis}
                 </div>
                 <div class="source-info" style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #d1e9ff;">
                     <span class="trust-badge trust-verified">🤖 AI智能分析</span>
-                    基于${CONFIG.provider}大模型深度分析 · 充分考虑个人情况
+                    基于${CONFIG.provider}大模型深度分析 · 充分考虑个人完整情况
                 </div>
             </div>
         `;
@@ -870,29 +1067,34 @@ async function generateAbilityAnalysis() {
 function 判断入学类型(userData) {
     const 户籍区 = userData.户籍所在区 || '';
     const 居住区 = userData.实际居住区 || '';
-    const 房产情况 = userData.房产情况 || '';
+    const 房产情况 = userData.房产证类型 || '';
+    const 居住性质 = userData.居住性质 || '';
     
     if (户籍区 === '外地户籍' || !户籍区) {
         return '随迁类 - 需办理居住证,由居住证所在区统筹安排公办入学';
     }
     
-    if (户籍区 === 居住区 && 房产情况.includes('自有')) {
+    if (户籍区 === 居住区 && (房产情况.includes('自有') || 房产情况.includes('安置房'))) {
         return '户籍类(房户一致) - 可报名对口公办学校,第一顺位';
     }
     
-    if (户籍区 !== 居住区) {
+    if (户籍区 !== 居住区 && (房产情况.includes('自有') || 房产情况.includes('安置房'))) {
         return '户籍类(房户不一致) - 可报名户籍所在区公办学校,第二顺位';
     }
     
-    if (房产情况.includes('租房')) {
+    if (居住性质 === '租房') {
         return '户籍类(租房居住) - 统筹安排公办入学,第四顺位';
+    }
+    
+    if (户籍区.includes('集体户')) {
+        return '集体户类 - 由教育局统筹安排公办入学';
     }
     
     return '户籍类 - 建议确认具体房户情况';
 }
 
-// 学校推荐
-async function showSchoolRecommendations() {
+// 增强版学校推荐
+async function showEnhancedSchoolRecommendations() {
     const recommendationElement = document.getElementById('schoolRecommendation');
     if (!recommendationElement) return;
     
@@ -900,7 +1102,8 @@ async function showSchoolRecommendations() {
     recommendationElement.innerHTML = `
         <div class="ai-loading">
             <div class="ai-loading-spinner"></div>
-            <p>AI正在基于您的信息进行深度分析...</p>
+            <p>AI正在基于您的完整信息进行深度分析...</p>
+            <p style="font-size: 12px; color: #666; margin-top: 5px;">分析您的户籍、居住、房产、能力、预算等所有信息</p>
         </div>
     `;
     
@@ -918,81 +1121,119 @@ async function showSchoolRecommendations() {
     
     try {
         const userData = collectUserDataForAI();
+        const userFullInfo = getUserFullInfoString();
         
-        // 构建详细的推荐prompt - 修复版：移除了硬编码的文件路径引用
+        // 构建详细的推荐prompt - 增强版
         const prompt = `
-请根据以下学生完整信息，生成【个性化学校推荐】:
+请根据以下学生完整信息，生成【个性化学校推荐列表】:
 
-【学生基本情况】
-- 当前年级: ${userData.当前年级 || '未填写'}
-- 学生特长: ${userData.学生特长.join('、') || '无'}
-- 学业规划: ${userData.学业规划 || '未填写'}
+${userFullInfo}
 
-【户籍与居住信息】
-- 户籍所在区: ${userData.户籍所在区 || '未填写'}
-- 实际居住区: ${userData.实际居住区 || '未填写'}
-- 房产情况: ${userData.房产情况 || '未填写'}
-- 入学情况判断: ${判断入学类型(userData)}
-
-【家庭意向】
-- 民办意向: ${userData.民办意向 || '未填写'}
-- 预算范围: ${userData.预算范围 || '未填写'}
-
-【能力评估详细数据】
-- 学业成绩: ${userData.能力评估['维度1'] || '未评估'}分
-- 综合素养: ${userData.能力评估['维度2'] || '未评估'}分  
-- 学习习惯: ${userData.能力评估['维度3'] || '未评估'}分
-- 心理素质: ${userData.能力评估['维度4'] || '未评估'}分
-- 家庭支持: ${userData.能力评估['维度5'] || '未评估'}分
-- 学科倾向: ${userData.能力评估['维度6'] || '未评估'}分
+【入学情况判断】
+${判断入学类型(userData)}
 
 【重要指令】
 1. 你必须以西安市2025年教育局官方公布的学校名单和学区划分信息为准；
 2. 除西安市教育局官方公布的数据外，不允许猜测数据；
 3. 只能推荐西安市教育局2025年官方名单中的真实学校；
-4. 如果官方名单中无对应信息，请明确说明"根据西安市教育局2025年公布名单，该学校信息暂未收录"。
+4. 如果官方名单中无对应信息，请明确说明"根据西安市教育局2025年公布名单，该学校信息暂未收录"；
+5. 必须基于用户填写的所有信息进行分析，包括详细的户籍地址、居住地址、房产情况等；
+6. 公办学校推荐必须严格遵循户籍所在区的对口学区政策；
+7. 民办学校推荐要考虑用户的可接受跨区范围和预算限制。
 
 【推荐要求】
 1. **必须严格遵循西安市2025年招生政策**
 2. **公办学校推荐规则**:
    - 户籍类(房户一致/房户不一致): 只能推荐户籍所在区内对口公办学校
    - 随迁类: 只能推荐居住证所在区统筹公办学校
+   - 必须说明具体的对口学区或统筹安排范围
 3. **民办学校推荐规则**:
-   - 可推荐全市范围内民办学校
-   - 必须说明摇号概率(基于历史数据)
-4. **推荐5所学校**: 2所冲刺校 + 2所稳妥校 + 1所保底校
-5. **每所学校必须包含**:
-   - 学校名称(必须是西安市真实存在的学校，参考西安市教育局2025年名单)
+   - 可推荐全市范围内民办学校，但要考虑用户跨区偏好
+   - 必须说明摇号概率(基于2024年历史数据估算)
+   - 必须考虑用户预算(${userData.民办学校预算})
+4. **推荐8-10所学校**: 3所冲刺校 + 3所稳妥校 + 2所保底校 + 2所对口公办校
+5. **以表格形式呈现**，每所学校必须包含:
+   - 学校名称(必须是西安市真实存在的学校)
    - 类型(民办/公办)
-   - 匹配度(百分比)
-   - 推荐理由(结合学生能力+地理位置+政策要求)
-   - 摇号概率/入学概率(基于2024年历史数据估算)
+   - 区县
+   - 对口学区/招生范围
+   - 匹配度(百分比，基于用户信息计算)
+   - 推荐理由(结合用户所有信息:能力+户籍+居住+房产+预算+特长)
+   - 摇号概率/入学概率
+   - 推荐类型(冲刺/稳妥/保底/对口)
+   - 收费标准(民办学校必填)
    - 学校特色
-   - 推荐类型(冲刺/稳妥/保底)
-   - 收费标准(民办学校必填，参考2024年标准)
-   - 入学要求(政策依据，参考西安市2025年小升初政策)
-   - 数据来源(教育局官网/学校招生简章/官方政策文件)
-
 6. **输出格式要求**:
 以HTML格式输出,使用以下结构：
 
-<div class="school-card recommended">
-    <div class="school-header">
-        <h4>【学校名称】</h4>
-        <span class="match-badge">匹配度 XX%</span>
-    </div>
-    <div class="school-details">
-        <p><strong>类型:</strong> 民办/公办</p>
-        <p><strong>区县:</strong> 【区县名称】</p>
-        <p><strong>对口学区:</strong> 【参考西安市教育局2025年学区划分】</p>
-        <p><strong>特色:</strong> 【学校特色】</p>
-        <p><strong>预估摇号概率/入学概率:</strong> XX%</p>
-        <p><strong>推荐理由:</strong> 【具体分析】</p>
-        <p><strong>收费标准:</strong> 【仅民办填写】</p>
-        <p><strong>入学要求:</strong> 【政策依据】</p>
-        <p><strong>数据来源:</strong> 学校官网/招生简章/教育局政策</p>
-    </div>
+<div class="recommendation-table">
+    <h4>🏫 个性化学校推荐列表（基于您的完整信息）</h4>
+    <table class="school-table">
+        <thead>
+            <tr>
+                <th>序号</th>
+                <th>学校名称</th>
+                <th>类型</th>
+                <th>区县</th>
+                <th>对口学区</th>
+                <th>匹配度</th>
+                <th>推荐理由</th>
+                <th>入学概率</th>
+                <th>推荐类型</th>
+                <th>收费标准</th>
+                <th>学校特色</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- 这里放学校数据行 -->
+            <tr>
+                <td>1</td>
+                <td>【学校名称】</td>
+                <td>公办/民办</td>
+                <td>【区县】</td>
+                <td>【对口学区】</td>
+                <td><span class="match-badge">XX%</span></td>
+                <td>【推荐理由】</td>
+                <td>XX%</td>
+                <td><span class="badge badge-冲刺">冲刺</span></td>
+                <td>【收费标准】</td>
+                <td>【学校特色】</td>
+            </tr>
+        </tbody>
+    </table>
 </div>
+
+<style>
+.school-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    font-size: 14px;
+}
+.school-table th {
+    background: #f0f9ff;
+    padding: 10px;
+    border: 1px solid #d1e9ff;
+    text-align: center;
+    font-weight: bold;
+}
+.school-table td {
+    padding: 10px;
+    border: 1px solid #e2e8f0;
+    vertical-align: top;
+}
+.match-badge {
+    background: #3b82f6;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+.badge-冲刺 { background: #ef4444; color: white; padding: 3px 8px; border-radius: 12px; }
+.badge-稳妥 { background: #f59e0b; color: white; padding: 3px 8px; border-radius: 12px; }
+.badge-保底 { background: #10b981; color: white; padding: 3px 8px; border-radius: 12px; }
+.badge-对口 { background: #8b5cf6; color: white; padding: 3px 8px; border-radius: 12px; }
+</style>
 
 请直接返回HTML内容,不要包含markdown标记。
 `;
@@ -1002,9 +1243,19 @@ async function showSchoolRecommendations() {
         recommendationElement.innerHTML = `
             <div class="school-recommendation-list">
                 ${schoolRecommendations}
-                <div class="source-info" style="margin-top: 15px;">
-                    <span class="trust-badge trust-verified">✅ 数据准确</span>
-                    基于西安市真实学校数据库 · 严格遵循2025年招生政策
+                <div class="source-info" style="margin-top: 20px; padding: 15px; background: #f7fafc; border-radius: 8px;">
+                    <h5 style="margin: 0 0 10px 0;">📋 推荐说明</h5>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #4b5563;">
+                        <li>本推荐基于您填写的<strong>所有个人信息</strong>生成，包括户籍、居住、房产、能力评估、预算等</li>
+                        <li>公办学校推荐严格遵循<strong>户籍所在区对口学区政策</strong></li>
+                        <li>民办学校推荐考虑您的<strong>跨区偏好和预算限制</strong></li>
+                        <li>匹配度基于您的信息与学校要求的契合程度计算</li>
+                        <li>入学概率基于2024年历史数据和2025年政策预估</li>
+                    </ul>
+                    <div style="margin-top: 15px;">
+                        <span class="trust-badge trust-verified">✅ 数据准确</span>
+                        基于西安市真实学校数据库 · 严格遵循2025年招生政策 · 个性化分析
+                    </div>
                 </div>
             </div>
         `;
@@ -1016,31 +1267,47 @@ async function showSchoolRecommendations() {
                 <h4 style="color: #e53e3e;">学校推荐生成失败</h4>
                 <p>错误: ${error.message}</p>
                 <p>请检查网络连接或稍后重试</p>
+                <button onclick="retryEnhancedSchoolRecommendation()" style="margin-top: 10px; padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    重试生成
+                </button>
             </div>
         `;
     }
 }
 
-// AI生成时间规划
-async function generateTimePlan(userData) {
+// 重试增强版学校推荐
+function retryEnhancedSchoolRecommendation() {
+    showEnhancedSchoolRecommendations();
+}
+
+// AI生成时间规划 - 增强版
+async function generateEnhancedTimePlan(userData) {
     const currentYear = new Date().getFullYear();
     const targetYear = userData.当前年级 === '六年级' ? currentYear + 1 : 
                       userData.当前年级 === '五年级' ? currentYear + 2 : 
                       userData.当前年级 === '四年级' ? currentYear + 3 : currentYear + 1;
     
+    const userFullInfo = getUserFullInfoString();
+    
     const prompt = `
 请根据以下家庭信息和学生情况制定【${targetYear}年西安小升初个性化时间规划】：
 
-用户信息：
-${JSON.stringify(userData, null, 2)}
+${userFullInfo}
+
+【入学顺位】${calculateAdmissionPriority(userData)}
 
 要求：
-1. 基于学生当前${userData.当前年级 || '六年级'}的情况制定时间规划
+1. 基于学生当前${userData.当前年级 || '六年级'}的情况和所有填写信息制定时间规划
 2. 列出${targetYear}年每个月的关键事项（政策关注、学校了解、材料准备、报名、摇号、录取等）
-3. 根据家庭情况给出特别提醒（如：户籍不一致需提前准备材料、民办意向强需关注学校开放日等）
+3. 根据家庭具体情况给出特别提醒：
+   - 户籍情况：${userData.户籍所在区}
+   - 居住情况：${userData.实际居住区}
+   - 房产情况：${userData.房产证类型}
+   - 预算情况：${userData.民办学校预算}
+   - 能力评估：${userData.能力评估['维度1'] || '未评估'}分
 4. 标注每个时间节点的重要性（关键/重要/提醒）
-5. 用简洁、可执行的方式呈现，包含具体日期
-6. 以HTML格式输出，使用<ul><li>结构
+5. 用表格形式呈现，包含月份、关键事项、具体日期、重要性、特别提醒
+6. 以HTML格式输出，使用<table>结构
 
 请直接返回HTML内容，不要包含markdown标记。
 `;
@@ -1054,21 +1321,25 @@ ${JSON.stringify(userData, null, 2)}
     }
 }
 
-// AI生成个性化政策提醒
-async function generatePolicyTips(userData) {
+// AI生成个性化政策提醒 - 增强版
+async function generateEnhancedPolicyTips(userData) {
+    const userFullInfo = getUserFullInfoString();
+    
     const prompt = `
 请根据以下学生和家庭信息，生成【个性化小升初政策提醒与建议】：
 
-用户信息：
-${JSON.stringify(userData, null, 2)}
+${userFullInfo}
 
 要求：
-1. 根据户籍、居住情况判断公办入学顺位（第一/第二/第三/第四顺位）
-2. 分析民办摇号是否有优势（如：区内摇号概率）
-3. 是否受租房政策影响
-4. 是否有房户一致优势
-5. 给出明确的风险提示与应对建议
-6. 以HTML格式输出，使用<div>和<p>结构，关键信息用<strong>标记
+1. 根据户籍(${userData.户籍所在区})、居住(${userData.实际居住区})、房产(${userData.房产证类型})情况判断具体入学顺位
+2. 分析民办摇号是否有优势（如：区内摇号概率，基于${userData.户籍所在区}）
+3. 分析是否受租房政策影响（居住性质：${userData.居住性质}）
+4. 分析是否有房户一致优势（户籍与居住关系：${userData.户籍区与居住区相同 ? '相同' : '不同'}）
+5. 基于能力评估(${Object.values(userData.能力评估).join('分,')}分)给出学习准备建议
+6. 基于预算(${userData.民办学校预算})给出民办学校选择建议
+7. 基于特长(${userData.学生特长.join('、')})给出特色发展建议
+8. 给出明确的风险提示与应对建议
+9. 以HTML表格形式输出，包含：政策要点、对您的影响、应对策略、重要程度
 
 请直接返回HTML内容，不要包含markdown标记。
 `;
@@ -1082,8 +1353,8 @@ ${JSON.stringify(userData, null, 2)}
     }
 }
 
-// 调用AI生成并更新页面
-async function generateAITimelineAndPolicy() {
+// 调用AI生成并更新页面 - 增强版
+async function generateEnhancedTimelineAndPolicy() {
     const userData = collectUserDataForAI();
     
     // 显示加载状态
@@ -1095,6 +1366,7 @@ async function generateAITimelineAndPolicy() {
             <div class="ai-loading">
                 <div class="ai-loading-spinner"></div>
                 <p>AI正在为您生成个性化时间规划...</p>
+                <p style="font-size: 12px; color: #666;">基于您的户籍、居住、房产、能力等所有信息</p>
             </div>
         `;
     }
@@ -1104,6 +1376,7 @@ async function generateAITimelineAndPolicy() {
             <div class="ai-loading">
                 <div class="ai-loading-spinner"></div>
                 <p>AI正在分析您的政策优势...</p>
+                <p style="font-size: 12px; color: #666;">结合您的具体情况进行政策解读</p>
             </div>
         `;
     }
@@ -1111,19 +1384,22 @@ async function generateAITimelineAndPolicy() {
     // 并行生成
     try {
         const [timePlan, policyTips] = await Promise.all([
-            generateTimePlan(userData),
-            generatePolicyTips(userData)
+            generateEnhancedTimePlan(userData),
+            generateEnhancedPolicyTips(userData)
         ]);
         
         // 更新页面
         if (timelineElement) {
             timelineElement.innerHTML = `
-                <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-top: 10px;">
-                    <h4>📅 您的专属时间规划</h4>
+                <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin-top: 10px; border: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0 0 15px 0; color: #1e40af;">📅 您的专属时间规划（基于完整信息）</h4>
+                    <div style="font-size: 14px; color: #4b5563; margin-bottom: 15px;">
+                        <strong>适用对象：</strong>${userData.学生姓名 || '学生'} | ${userData.当前年级 || '六年级'} | ${userData.户籍所在区 || '未填写'}户籍
+                    </div>
                     ${timePlan}
-                    <div class="source-info" style="margin-top: 15px;">
+                    <div class="source-info" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #d1e9ff;">
                         <span class="trust-badge trust-verified">🤖 AI个性化生成</span>
-                        基于${CONFIG.provider}大模型深度分析
+                        基于${CONFIG.provider}大模型深度分析 · 结合您的所有填写信息
                     </div>
                 </div>
             `;
@@ -1131,12 +1407,15 @@ async function generateAITimelineAndPolicy() {
         
         if (policyElement) {
             policyElement.innerHTML = `
-                <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #f56565;">
-                    <h4>💡 政策分析与建议</h4>
+                <div style="background: #fff5f5; padding: 20px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #f56565; border: 1px solid #fed7d7;">
+                    <h4 style="margin: 0 0 15px 0; color: #c53030;">💡 政策分析与个性化建议</h4>
+                    <div style="font-size: 14px; color: #4b5563; margin-bottom: 15px;">
+                        <strong>分析依据：</strong>您的户籍、居住、房产、能力、预算、特长等所有信息
+                    </div>
                     ${policyTips}
-                    <div class="source-info" style="margin-top: 15px;">
+                    <div class="source-info" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid #fed7d7;">
                         <span class="trust-badge trust-verified">🤖 AI智能分析</span>
-                        基于2025年西安小升初最新政策
+                        基于2025年西安小升初最新政策 · 完全个性化解读
                     </div>
                 </div>
             `;
@@ -1156,17 +1435,26 @@ function displayStaticTimelineAndPolicy() {
     if (timelineElement) {
         timelineElement.innerHTML = `
             <div style="background: #f7fafc; padding: 15px; border-radius: 8px; margin-top: 10px;">
-                <h4>2025年小升初时间安排</h4>
-                <ul style="margin: 10px 0; padding-left: 20px;">
-                    <li><strong>7月11-24日：</strong>公民办同步报名</li>
-                    <li><strong>7月30日：</strong>民办学校摇号录取</li>
-                    <li><strong>8月1-5日：</strong>民办学校补录报名</li>
-                    <li><strong>8月10日前：</strong>公办学校录取通知</li>
-                    <li><strong>8月15-20日：</strong>统筹安排入学</li>
-                    <li><strong>8月25-31日：</strong>各校发放录取通知书</li>
-                </ul>
+                <h4>2025年小升初时间安排（通用版）</h4>
+                <table style="width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px;">
+                    <thead>
+                        <tr style="background: #e2e8f0;">
+                            <th style="padding: 8px; border: 1px solid #cbd5e0;">时间</th>
+                            <th style="padding: 8px; border: 1px solid #cbd5e0;">事项</th>
+                            <th style="padding: 8px; border: 1px solid #cbd5e0;">重要性</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="padding: 8px; border: 1px solid #e2e8f0;">7月11-24日</td><td>公民办同步报名</td><td><span style="background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">关键</span></td></tr>
+                        <tr><td style="padding: 8px; border: 1px solid #e2e8f0;">7月30日</td><td>民办学校摇号录取</td><td><span style="background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">关键</span></td></tr>
+                        <tr><td style="padding: 8px; border: 1px solid #e2e8f0;">8月1-5日</td><td>民办学校补录报名</td><td><span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">重要</span></td></tr>
+                        <tr><td style="padding: 8px; border: 1px solid #e2e8f0;">8月10日前</td><td>公办学校录取通知</td><td><span style="background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">关键</span></td></tr>
+                        <tr><td style="padding: 8px; border: 1px solid #e2e8f0;">8月15-20日</td><td>统筹安排入学</td><td><span style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">重要</span></td></tr>
+                        <tr><td style="padding: 8px; border: 1px solid #e2e8f0;">8月25-31日</td><td>各校发放录取通知书</td><td><span style="background: #10b981; color: white; padding: 2px 6px; border-radius: 4px; font-size: 12px;">提醒</span></td></tr>
+                    </tbody>
+                </table>
                 <p style="margin-top: 10px; color: #e53e3e; font-size: 13px;">
-                    💬 提示：配置AI服务后可获得个性化时间规划
+                    💬 提示：配置AI服务后可获得基于您个人情况的个性化时间规划
                 </p>
             </div>
         `;
@@ -1175,25 +1463,34 @@ function displayStaticTimelineAndPolicy() {
     if (policyElement) {
         policyElement.innerHTML = `
             <div style="background: #fff5f5; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #f56565;">
-                <h4>重要提醒</h4>
-                <ul style="margin: 10px 0; padding-left: 20px;">
-                    <li>请确保在7月11日前准备好所有报名材料</li>
-                    <li>民办学校摇号结果公布后，请及时确认录取</li>
-                    <li>未被民办录取的学生将自动进入公办入学流程</li>
-                    <li>建议提前了解对口公办学校的招生政策</li>
-                    <li>请关注西安市教育局官方网站获取最新信息</li>
-                </ul>
+                <h4>重要提醒（通用版）</h4>
+                <table style="width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px;">
+                    <thead>
+                        <tr style="background: #fed7d7;">
+                            <th style="padding: 8px; border: 1px solid #feb2b2;">政策要点</th>
+                            <th style="padding: 8px; border: 1px solid #feb2b2;">影响</th>
+                            <th style="padding: 8px; border: 1px solid #feb2b2;">建议</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="padding: 8px; border: 1px solid #fed7d7;">公民同招</td><td>只能选择公办或民办其中一类报名</td><td>提前确定意向，避免错过时间</td></tr>
+                        <tr><td style="padding: 8px; border: 1px solid #fed7d7;">摇号录取</td><td>民办学校全部实行电脑随机录取</td><td>准备备用方案，做好心理准备</td></tr>
+                        <tr><td style="padding: 8px; border: 1px solid #fed7d7;">房户一致优先</td><td>户籍与房产一致的优先录取</td><td>确认房产证与户口本信息一致</td></tr>
+                        <tr><td style="padding: 8px; border: 1px solid #fed7d7;">统筹安排</td><td>未被民办录取的由教育局统筹</td><td>了解片区公办学校情况</td></tr>
+                        <tr><td style="padding: 8px; border: 1px solid #fed7d7;">随迁子女</td><td>需提供居住证、务工证明等</td><td>提前准备相关证明材料</td></tr>
+                    </tbody>
+                </table>
                 <p style="margin-top: 10px; color: #e53e3e; font-size: 13px;">
-                    💬 提示：配置AI服务后可获得个性化政策分析
+                    💬 提示：配置AI服务后可获得基于您个人情况的个性化政策分析
                 </p>
             </div>
         `;
     }
 }
 
-// ========== 中文PDF导出功能（优化版） ==========
+// ========== 中文PDF导出功能（修复版） ==========
 
-// 完整修复版PDF导出函数（中文优化版）
+// 完整修复版PDF导出函数（解决乱码问题）
 async function generateFullPdfReport() {
     try {
         // 显示加载提示
@@ -1221,6 +1518,7 @@ async function generateFullPdfReport() {
         
         // 收集用户数据
         const userData = collectUserDataForAI();
+        const userFullInfo = getUserFullInfoString();
         const { jsPDF } = window.jspdf;
         
         // 创建PDF，设置中文支持
@@ -1231,8 +1529,15 @@ async function generateFullPdfReport() {
             compress: true
         });
         
-        // 设置中文字体（使用jsPDF内置支持中文的字体）
-        pdf.setFont("helvetica", "normal");
+        // 添加中文字体支持
+        try {
+            // 尝试加载中文字体
+            pdf.addFont('https://cdn.jsdelivr.net/npm/@jsreport/jsreport-fonts-pack@1.0.0/fonts/SourceHanSansCN-Regular.ttf', 'SourceHanSansCN', 'normal');
+            pdf.setFont('SourceHanSansCN');
+        } catch (e) {
+            console.log('使用默认字体');
+            pdf.setFont("helvetica", "normal");
+        }
         
         let y = 20;
         const lineHeight = 7;
@@ -1246,7 +1551,11 @@ async function generateFullPdfReport() {
             if (y > pageHeight) {
                 pdf.addPage();
                 y = 20;
-                pdf.setFont("helvetica", "normal");
+                try {
+                    pdf.setFont('SourceHanSansCN');
+                } catch (e) {
+                    pdf.setFont("helvetica", "normal");
+                }
             }
         }
         
@@ -1254,11 +1563,11 @@ async function generateFullPdfReport() {
         function addTitle(text, fontSize = 18) {
             checkNewPage();
             pdf.setFontSize(fontSize);
-            pdf.setFont("helvetica", "bold");
+            pdf.setFont(undefined, "bold");
             const textWidth = pdf.getTextWidth(text);
             const centerX = (pageWidth - textWidth) / 2;
             pdf.text(text, centerX, y);
-            pdf.setFont("helvetica", "normal");
+            pdf.setFont(undefined, "normal");
             y += fontSize / 2 + 5;
         }
         
@@ -1266,9 +1575,9 @@ async function generateFullPdfReport() {
         function addSubtitle(text, fontSize = 14) {
             checkNewPage();
             pdf.setFontSize(fontSize);
-            pdf.setFont("helvetica", "bold");
+            pdf.setFont(undefined, "bold");
             pdf.text(text, leftMargin, y);
-            pdf.setFont("helvetica", "normal");
+            pdf.setFont(undefined, "normal");
             y += 8;
         }
         
@@ -1276,10 +1585,12 @@ async function generateFullPdfReport() {
         function addText(text, fontSize = 12, isBold = false, marginLeft = leftMargin) {
             pdf.setFontSize(fontSize);
             if (isBold) {
-                pdf.setFont("helvetica", "bold");
+                pdf.setFont(undefined, "bold");
             }
             
-            const lines = pdf.splitTextToSize(text, rightMargin - marginLeft);
+            // 处理中文字符
+            const safeText = String(text || '').replace(/[^\u0000-\uFFFF]/g, '');
+            const lines = pdf.splitTextToSize(safeText, rightMargin - marginLeft);
             lines.forEach(line => {
                 checkNewPage();
                 pdf.text(line, marginLeft, y);
@@ -1287,7 +1598,7 @@ async function generateFullPdfReport() {
             });
             
             if (isBold) {
-                pdf.setFont("helvetica", "normal");
+                pdf.setFont(undefined, "normal");
             }
         }
         
@@ -1304,13 +1615,56 @@ async function generateFullPdfReport() {
             items.forEach(item => {
                 checkNewPage();
                 pdf.text('•', leftMargin, y);
-                const lines = pdf.splitTextToSize(' ' + item, rightMargin - leftMargin - 10);
+                const safeItem = String(item || '').replace(/[^\u0000-\uFFFF]/g, '');
+                const lines = pdf.splitTextToSize(' ' + safeItem, rightMargin - leftMargin - 10);
                 lines.forEach((line, index) => {
                     if (index > 0) checkNewPage();
                     pdf.text(line, leftMargin + 5, y);
                     y += lineHeight;
                 });
                 y += 2;
+            });
+        }
+        
+        // 辅助函数:添加表格
+        function addTable(headers, rows, fontSize = 10) {
+            pdf.setFontSize(fontSize);
+            
+            // 计算列宽
+            const colWidths = headers.map(() => 30);
+            
+            // 绘制表头
+            checkNewPage();
+            let x = leftMargin;
+            headers.forEach((header, i) => {
+                pdf.setFont(undefined, "bold");
+                const safeHeader = String(header || '').replace(/[^\u0000-\uFFFF]/g, '');
+                pdf.text(safeHeader, x, y);
+                x += colWidths[i];
+            });
+            y += lineHeight + 2;
+            
+            // 绘制表格线
+            pdf.line(leftMargin, y - 2, leftMargin + colWidths.reduce((a, b) => a + b, 0), y - 2);
+            
+            // 绘制数据行
+            rows.forEach(row => {
+                checkNewPage();
+                let x = leftMargin;
+                row.forEach((cell, i) => {
+                    pdf.setFont(undefined, "normal");
+                    const safeCell = String(cell || '').replace(/[^\u0000-\uFFFF]/g, '');
+                    const lines = pdf.splitTextToSize(safeCell, colWidths[i] - 5);
+                    lines.forEach((line, lineIndex) => {
+                        if (lineIndex > 0) {
+                            y += lineHeight;
+                            checkNewPage();
+                        }
+                        pdf.text(line, x + 2, y);
+                    });
+                    x += colWidths[i];
+                });
+                y += lineHeight + 4;
             });
         }
         
@@ -1322,11 +1676,22 @@ async function generateFullPdfReport() {
         y += 15;
         
         addSubtitle('学生基本信息', 16);
-        addText(`当前年级：${userData.当前年级 || "未填写"}`, 12);
-        addText(`户籍所在区：${userData.户籍所在区 || "未填写"}`, 12);
-        addText(`实际居住区：${userData.实际居住区 || "未填写"}`, 12);
-        addText(`房产情况：${userData.房产情况 || "未填写"}`, 12);
-        addText(`民办意向：${userData.民办意向 || "未填写"}`, 12);
+        
+        const basicInfo = [];
+        if (userData.学生姓名) basicInfo.push(`姓名：${userData.学生姓名}`);
+        if (userData.学生性别) basicInfo.push(`性别：${userData.学生性别}`);
+        if (userData.所在小学) basicInfo.push(`所在小学：${userData.所在小学}`);
+        if (userData.当前年级) basicInfo.push(`当前年级：${userData.当前年级}`);
+        
+        addBulletList(basicInfo, 12);
+        
+        addSubtitle('联系信息', 14);
+        
+        const contactInfo = [];
+        if (userData.户籍详细地址) contactInfo.push(`户籍地址：${userData.户籍详细地址}`);
+        if (userData.居住详细地址) contactInfo.push(`居住地址：${userData.居住详细地址}`);
+        
+        addBulletList(contactInfo, 12);
         
         addDivider();
         
@@ -1338,19 +1703,18 @@ async function generateFullPdfReport() {
         pdf.addPage();
         y = 20;
         
-        addTitle('一、能力评估分析', 18);
+        addTitle('二、能力评估分析', 18);
         y += 5;
         
         addSubtitle('能力维度得分', 14);
         
-        const abilities = [
-            `学业成绩：${userData.能力评估['维度1'] || '未评估'}分`,
-            `综合素养：${userData.能力评估['维度2'] || '未评估'}分`,
-            `学习习惯：${userData.能力评估['维度3'] || '未评估'}分`,
-            `心理素质：${userData.能力评估['维度4'] || '未评估'}分`,
-            `家庭支持：${userData.能力评估['维度5'] || '未评估'}分`,
-            `学科倾向：${userData.能力评估['维度6'] || '未评估'}分`
-        ];
+        const abilities = [];
+        if (userData.能力评估['维度1']) abilities.push(`学业成绩：${userData.能力评估['维度1']}分`);
+        if (userData.能力评估['维度2']) abilities.push(`综合素养：${userData.能力评估['维度2']}分`);
+        if (userData.能力评估['维度3']) abilities.push(`学习习惯：${userData.能力评估['维度3']}分`);
+        if (userData.能力评估['维度4']) abilities.push(`心理素质：${userData.能力评估['维度4']}分`);
+        if (userData.能力评估['维度5']) abilities.push(`家庭支持：${userData.能力评估['维度5']}分`);
+        if (userData.能力评估['维度6']) abilities.push(`学科倾向：${userData.能力评估['维度6']}分`);
         
         addBulletList(abilities, 12);
         y += 10;
@@ -1369,76 +1733,122 @@ async function generateFullPdfReport() {
             }
         }
         
-        addSubtitle('学生特长', 14);
+        addSubtitle('学生特长与兴趣', 14);
         if (userData.学生特长 && userData.学生特长.length > 0) {
             addBulletList(userData.学生特长, 11);
         } else {
             addText("未填写学生特长", 11);
         }
         
-        /*********************** 3. 入学资格分析 ***********************/
+        /*********************** 3. 户籍与入学资格分析 ***********************/
         pdf.addPage();
         y = 20;
         
-        addTitle('二、入学资格分析', 18);
+        addTitle('三、户籍与入学资格分析', 18);
         y += 10;
         
-        addSubtitle('户籍与居住情况', 14);
+        addSubtitle('户籍信息', 14);
         
-        const hukouInfo = [
-            `户籍所在区：${userData.户籍所在区 || '未填写'}`,
-            `实际居住区：${userData.实际居住区 || '未填写'}`,
-            `房产情况：${userData.房产情况 || '未填写'}`
-        ];
+        const hukouInfo = [];
+        if (userData.户籍所在区) hukouInfo.push(`户籍区：${userData.户籍所在区}`);
+        if (userData.户籍所在街道) hukouInfo.push(`户籍街道：${userData.户籍所在街道}`);
+        if (userData.户籍详细地址) hukouInfo.push(`详细地址：${userData.户籍详细地址}`);
         
         addBulletList(hukouInfo, 12);
-        y += 5;
+        
+        addSubtitle('居住信息', 14);
+        
+        const residenceInfo = [];
+        if (userData.实际居住区) residenceInfo.push(`居住区：${userData.实际居住区}`);
+        if (userData.实际居住街道) residenceInfo.push(`居住街道：${userData.实际居住街道}`);
+        if (userData.居住详细地址) residenceInfo.push(`详细地址：${userData.居住详细地址}`);
+        if (userData.居住性质) residenceInfo.push(`居住性质：${userData.居住性质}`);
+        
+        addBulletList(residenceInfo, 12);
+        
+        addSubtitle('房产信息', 14);
+        
+        const propertyInfo = [];
+        if (userData.学区房情况) propertyInfo.push(`学区房情况：${userData.学区房情况}`);
+        if (userData.房产证类型) propertyInfo.push(`房产证类型：${userData.房产证类型}`);
+        if (userData.房产持有时间) propertyInfo.push(`持有时间：${userData.房产持有时间}`);
+        
+        addBulletList(propertyInfo, 12);
         
         // 判断入学类型
         const admissionType = 判断入学类型(userData);
-        addSubtitle('入学顺位分析', 14);
-        addText(admissionType, 12, true);
-        y += 10;
+        const admissionPriority = calculateAdmissionPriority(userData);
+        const priorityReason = getPriorityReason(userData);
         
-        addSubtitle('预估入学概率', 14);
-        const admissionProb = [
-            "第一顺位（房户一致）：80-100%",
-            "第二顺位（房户不一致）：60-80%",
-            "第三顺位（集体户/安置房）：40-60%",
-            "第四顺位（租房/随迁）：20-40%"
-        ];
-        addBulletList(admissionProb, 11);
+        addSubtitle('入学资格评估', 14);
+        addText(admissionType, 12, true);
+        y += 5;
+        addText(`入学顺位：${admissionPriority}`, 12);
+        y += 5;
+        addText(`评估理由：${priorityReason}`, 11);
         
         /*********************** 4. 学校推荐 ***********************/
         pdf.addPage();
         y = 20;
         
-        addTitle('三、个性化学校推荐', 18);
+        addTitle('四、个性化学校推荐', 18);
         y += 10;
         
         const schoolCards = document.querySelectorAll(".school-card");
-        if (schoolCards.length === 0) {
+        const schoolTable = document.querySelector(".school-table");
+        
+        if (schoolTable) {
+            // 如果有表格形式的推荐，提取表格数据
+            const rows = [];
+            const tableRows = schoolTable.querySelectorAll("tbody tr");
+            
+            tableRows.forEach((row, index) => {
+                const cells = row.querySelectorAll("td");
+                if (cells.length >= 8) {
+                    const rowData = [
+                        (index + 1).toString(),
+                        cells[1]?.textContent?.trim() || "",
+                        cells[2]?.textContent?.trim() || "",
+                        cells[3]?.textContent?.trim() || "",
+                        cells[4]?.textContent?.trim() || "",
+                        cells[5]?.textContent?.trim() || "",
+                        cells[6]?.textContent?.trim() || "",
+                        cells[7]?.textContent?.trim() || ""
+                    ];
+                    rows.push(rowData);
+                }
+            });
+            
+            if (rows.length > 0) {
+                addSubtitle('推荐学校列表', 14);
+                
+                const headers = ['序号', '学校名称', '类型', '区县', '匹配度', '推荐类型', '入学概率', '特色'];
+                addTable(headers, rows);
+            } else {
+                addText("暂未生成学校推荐表格", 12);
+            }
+        } else if (schoolCards.length > 0) {
+            // 传统的卡片形式
             addSubtitle('推荐学校', 14);
-            addText("暂未生成学校推荐，请在系统中查看详细推荐。", 12);
-        } else {
+            
             let schoolCount = 1;
             schoolCards.forEach((card, index) => {
                 checkNewPage();
                 
-                const schoolName = card.querySelector("h3, h4")?.innerText || "未知学校";
-                const matchBadge = card.querySelector(".match-badge")?.innerText || "";
+                const schoolName = card.querySelector("h3, h4")?.textContent?.trim() || "未知学校";
+                const matchBadge = card.querySelector(".match-badge")?.textContent?.trim() || "";
                 const details = card.querySelectorAll("p");
                 
-                addSubtitle(`${schoolCount}. ${schoolName}`, 13);
+                addText(`${schoolCount}. ${schoolName}`, 13, true);
                 if (matchBadge) {
-                    addText(matchBadge, 11, true);
+                    addText(matchBadge, 11, false, leftMargin + 10);
                 }
                 
                 const schoolInfo = [];
                 details.forEach(p => {
-                    const text = p.innerText || p.textContent || "";
-                    if (text.trim()) {
-                        schoolInfo.push(text.substring(0, 80)); // 限制长度
+                    const text = p.textContent?.trim() || "";
+                    if (text && text.length > 0 && text.length < 100) {
+                        schoolInfo.push(text);
                     }
                 });
                 
@@ -1448,28 +1858,25 @@ async function generateFullPdfReport() {
                 
                 y += 5;
                 schoolCount++;
-                
-                // 每所学校后添加分隔线（除了最后一个）
-                if (index < schoolCards.length - 1) {
-                    addDivider();
-                }
             });
+        } else {
+            addText("暂未生成学校推荐，请在系统中查看详细推荐。", 12);
         }
         
-        /*********************** 5. 时间规划 ***********************/
+        /*********************** 5. 时间规划与建议 ***********************/
         pdf.addPage();
         y = 20;
         
-        addTitle('四、小升初时间规划', 18);
+        addTitle('五、时间规划与建议', 18);
         y += 10;
         
         const grade = userData.当前年级 || '六年级';
         const timelineItems = generateTimeline(grade);
         
-        addSubtitle(`${grade}时间规划表`, 14);
+        addSubtitle(`${grade}小升初时间规划`, 14);
         addBulletList(timelineItems, 11);
         
-        /*********************** 6. 政策提醒 ***********************/
+        /*********************** 6. 重要提醒 ***********************/
         y += 10;
         addSubtitle('重要政策提醒', 14);
         
@@ -1477,6 +1884,7 @@ async function generateFullPdfReport() {
             "公民办学校同步招生，只能选择其中一类报名",
             "民办学校实行电脑随机录取（摇号）",
             "未被民办录取的学生，由教育局统筹安排公办入学",
+            "房户一致的家庭享有最优先入学资格",
             "随迁子女需提供居住证、务工证明等材料",
             "请关注西安市教育局官网获取最新政策"
         ];
@@ -1487,22 +1895,22 @@ async function generateFullPdfReport() {
         pdf.addPage();
         y = 20;
         
-        addTitle('五、报告说明', 18);
+        addTitle('六、报告说明', 18);
         y += 10;
         
         const reportNotes = [
-            "1. 本报告基于用户填写信息和西安市2025年小升初政策生成",
-            "2. 学校推荐基于西安市教育局官方公布的学校名单",
-            "3. 入学概率为理论预估，实际结果以当年录取为准",
-            "4. 时间安排为常规规划，具体时间请以官方通知为准",
-            "5. 建议家长结合实际情况，多方面了解目标学校",
-            "6. 最终解释权以西安市教育局官方政策为准"
+            "本报告基于用户填写信息和西安市2025年小升初政策生成",
+            "学校推荐基于西安市教育局官方公布的学校名单",
+            "入学概率为理论预估，实际结果以当年录取为准",
+            "时间安排为常规规划，具体时间请以官方通知为准",
+            "建议家长结合实际情况，多方面了解目标学校",
+            "最终解释权以西安市教育局官方政策为准",
+            "报告生成时间：" + new Date().toLocaleString('zh-CN')
         ];
         
         addBulletList(reportNotes, 11);
         
         y += 15;
-        addText(`报告生成时间：${new Date().toLocaleString('zh-CN')}`, 10);
         addText("数据来源：西安市教育局官方网站", 10);
         addText("技术支持：西安小升初智能评估系统", 10);
         
@@ -1514,8 +1922,11 @@ async function generateFullPdfReport() {
             pdf.text(`第 ${i} 页 / 共 ${pageCount} 页`, pageWidth / 2, 290, { align: 'center' });
         }
         
+        // 保存PDF - 使用安全文件名
+        const safeName = (userData.学生姓名 || '未知').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '');
+        const filename = `西安小升初评估报告_${safeName}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.pdf`;
+        
         // 保存PDF
-        const filename = `西安小升初评估报告_${new Date().toLocaleDateString('zh-CN')}.pdf`;
         pdf.save(filename);
         
         // 移除加载提示
@@ -1526,8 +1937,118 @@ async function generateFullPdfReport() {
     } catch (error) {
         console.error('PDF生成失败:', error);
         document.getElementById('pdf-loading')?.remove();
-        alert('PDF生成失败: ' + error.message + '\n\n建议使用浏览器打印功能(Ctrl+P)作为替代方案');
+        
+        // 提供备用方案
+        const userData = collectUserDataForAI();
+        const safeName = (userData.学生姓名 || '报告').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '');
+        
+        // 生成文本报告作为备用
+        const textReport = generateTextReport();
+        const blob = new Blob([textReport], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `西安小升初评估报告_${safeName}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.txt`;
+        a.click();
+        
+        alert('PDF生成失败，已生成文本报告作为替代。错误信息：' + error.message);
     }
+}
+
+// 生成文本报告（PDF失败时的备用方案）
+function generateTextReport() {
+    const userData = collectUserDataForAI();
+    const admissionPriority = calculateAdmissionPriority(userData);
+    const priorityReason = getPriorityReason(userData);
+    
+    let report = '='.repeat(60) + '\n';
+    report += '        西安市小升初智能评估报告\n';
+    report += '='.repeat(60) + '\n\n';
+    
+    report += '报告生成时间：' + new Date().toLocaleString('zh-CN') + '\n\n';
+    
+    // 基本信息
+    report += '一、学生基本信息\n';
+    report += '-'.repeat(40) + '\n';
+    if (userData.学生姓名) report += '姓名：' + userData.学生姓名 + '\n';
+    if (userData.学生性别) report += '性别：' + userData.学生性别 + '\n';
+    if (userData.所在小学) report += '所在小学：' + userData.所在小学 + '\n';
+    if (userData.当前年级) report += '当前年级：' + userData.当前年级 + '\n';
+    
+    // 户籍信息
+    report += '\n二、户籍与居住信息\n';
+    report += '-'.repeat(40) + '\n';
+    if (userData.户籍所在区) report += '户籍区：' + userData.户籍所在区 + '\n';
+    if (userData.户籍所在街道) report += '户籍街道：' + userData.户籍所在街道 + '\n';
+    if (userData.实际居住区) report += '居住区：' + userData.实际居住区 + '\n';
+    if (userData.实际居住街道) report += '居住街道：' + userData.实际居住街道 + '\n';
+    if (userData.居住性质) report += '居住性质：' + userData.居住性质 + '\n';
+    
+    // 能力评估
+    report += '\n三、能力评估\n';
+    report += '-'.repeat(40) + '\n';
+    if (userData.能力评估['维度1']) report += '学业成绩：' + userData.能力评估['维度1'] + '分\n';
+    if (userData.能力评估['维度2']) report += '综合素养：' + userData.能力评估['维度2'] + '分\n';
+    if (userData.能力评估['维度3']) report += '学习习惯：' + userData.能力评估['维度3'] + '分\n';
+    if (userData.能力评估['维度4']) report += '心理素质：' + userData.能力评估['维度4'] + '分\n';
+    if (userData.能力评估['维度5']) report += '家庭支持：' + userData.能力评估['维度5'] + '分\n';
+    if (userData.能力评估['维度6']) report += '学科倾向：' + userData.能力评估['维度6'] + '分\n';
+    
+    // 入学资格
+    report += '\n四、入学资格评估\n';
+    report += '-'.repeat(40) + '\n';
+    report += '预估入学顺位：' + admissionPriority + '\n';
+    report += '评估理由：' + priorityReason + '\n';
+    
+    // 学校推荐（提取页面内容）
+    report += '\n五、学校推荐\n';
+    report += '-'.repeat(40) + '\n';
+    
+    const schoolTable = document.querySelector(".school-table");
+    if (schoolTable) {
+        const rows = schoolTable.querySelectorAll("tbody tr");
+        rows.forEach((row, index) => {
+            const cells = row.querySelectorAll("td");
+            if (cells.length >= 6) {
+                report += `${index + 1}. ${cells[1]?.textContent?.trim() || ''} `;
+                report += `[${cells[2]?.textContent?.trim() || ''}] `;
+                report += `匹配度：${cells[5]?.textContent?.trim() || ''}\n`;
+                report += `   推荐理由：${cells[6]?.textContent?.trim() || ''}\n`;
+            }
+        });
+    } else {
+        report += '请在系统中查看详细的学校推荐\n';
+    }
+    
+    // 时间规划
+    report += '\n六、时间规划\n';
+    report += '-'.repeat(40) + '\n';
+    const timelineItems = generateTimeline(userData.当前年级 || '六年级');
+    timelineItems.forEach(item => {
+        report += '• ' + item + '\n';
+    });
+    
+    // 注意事项
+    report += '\n七、重要提醒\n';
+    report += '-'.repeat(40) + '\n';
+    const reminders = [
+        '公民办学校同步招生，只能选择其中一类报名',
+        '民办学校实行电脑随机录取（摇号）',
+        '未被民办录取的学生，由教育局统筹安排公办入学',
+        '请确保在报名前准备好所有相关材料',
+        '关注西安市教育局官方网站获取最新信息'
+    ];
+    reminders.forEach(item => {
+        report += '• ' + item + '\n';
+    });
+    
+    report += '\n' + '='.repeat(60) + '\n';
+    report += '报告结束\n';
+    report += '数据来源：西安市教育局官方网站\n';
+    report += '生成系统：西安小升初智能评估系统\n';
+    report += '='.repeat(60) + '\n';
+    
+    return report;
 }
 
 // 生成时间规划
@@ -1608,82 +2129,13 @@ function exportReportJSON() {
             报告版本: '2025增强版',
             
             // 学生基本信息
-            学生信息: {
-                当前年级: document.querySelector('input[name="currentGrade"]:checked')?.value || '',
-                学生姓名: document.getElementById('studentName')?.value || '',
-                学生性别: document.getElementById('studentGender')?.value || '',
-                所在小学: document.getElementById('currentSchool')?.value || ''
-            },
+            学生信息: collectUserDataForAI(),
             
-            // 能力评估(6个维度)
-            能力评估: {
-                学业成绩: {
-                    得分: document.querySelector('input[name="score1"]:checked')?.value || '',
-                    描述: document.querySelector('input[name="score1"]:checked')?.nextElementSibling?.textContent || ''
-                },
-                综合素养: {
-                    得分: document.querySelector('input[name="score2"]:checked')?.value || '',
-                    描述: document.querySelector('input[name="score2"]:checked')?.nextElementSibling?.textContent || ''
-                },
-                学习习惯: {
-                    得分: document.querySelector('input[name="score3"]:checked')?.value || '',
-                    描述: document.querySelector('input[name="score3"]:checked')?.nextElementSibling?.textContent || ''
-                },
-                心理素质: {
-                    得分: document.querySelector('input[name="score4"]:checked')?.value || '',
-                    描述: document.querySelector('input[name="score4"]:checked')?.nextElementSibling?.textContent || ''
-                },
-                家庭支持: {
-                    得分: document.querySelector('input[name="score5"]:checked')?.value || '',
-                    描述: document.querySelector('input[name="score5"]:checked')?.nextElementSibling?.textContent || ''
-                },
-                学科倾向: {
-                    得分: document.querySelector('input[name="score6"]:checked')?.value || '',
-                    描述: document.querySelector('input[name="score6"]:checked')?.nextElementSibling?.textContent || ''
-                }
-            },
-            
-            // 户籍与居住信息
-            户籍居住信息: {
-                户籍所在区: document.getElementById('householdDistrict')?.value || '',
-                户籍所在街道: document.getElementById('householdStreet')?.value || '',
-                户籍详细地址: document.getElementById('householdAddress')?.value || '',
-                实际居住区: document.getElementById('residenceDistrict')?.value || '',
-                实际居住街道: document.getElementById('residenceStreet')?.value || '',
-                居住详细地址: document.getElementById('residenceAddress')?.value || '',
-                居住性质: document.getElementById('residenceType')?.value || '',
-                户籍区与居住区相同: document.getElementById('sameDistrict')?.checked || false,
-                户籍街道与居住街道相同: document.getElementById('sameStreet')?.checked || false,
-                在学区内居住: document.getElementById('inSchoolDistrict')?.checked || false
-            },
-            
-            // 学区房产信息
-            学区房产信息: {
-                学区房情况: document.getElementById('hasHouse')?.value || '',
-                房产证类型: document.getElementById('propertyType')?.value || '',
-                房产持有时间: document.getElementById('propertyYears')?.value || '',
-                预估入学顺位: document.getElementById('admissionPriority')?.textContent || '',
-                顺位理由: document.getElementById('priorityReason')?.textContent || ''
-            },
-            
-            // 民办意向与预算
-            民办意向与预算: {
-                是否考虑民办: document.getElementById('considerPrivate')?.value || '',
-                可接受的跨区范围: document.getElementById('crossDistrictPreference')?.value || '',
-                民办学校预算: document.getElementById('budget')?.value || '',
-                对摇号不确定性的态度: document.getElementById('acceptLottery')?.value || ''
-            },
-            
-            // 学生特长(多选)
-            学生特长: Array.from(document.querySelectorAll('input[name="specialty"]:checked, .strength-check:checked'))
-                .map(el => el.value),
-            
-            // AI分析结果
-            AI分析结果: {
-                能力分析: document.getElementById('abilityAnalysis')?.textContent?.trim() || '未生成',
-                推荐学校: extractSchoolRecommendations(),
-                时间规划: document.getElementById('timeline')?.textContent?.trim() || '未生成',
-                政策建议: document.getElementById('policyAdvice')?.textContent?.trim() || '未生成'
+            // 入学资格评估
+            入学资格评估: {
+                预估入学顺位: calculateAdmissionPriority(collectUserDataForAI()),
+                顺位理由: getPriorityReason(collectUserDataForAI()),
+                详细分析: 判断入学类型(collectUserDataForAI())
             },
             
             // 系统配置信息
@@ -1705,7 +2157,7 @@ function exportReportJSON() {
         linkElement.setAttribute('download', exportFileDefaultName);
         linkElement.click();
         
-        alert('✅ JSON数据导出成功!\n\n导出内容包括:\n- 学生基本信息\n- 6维度能力评估\n- 户籍居住信息\n- 房产信息\n- 民办意向\n- AI分析结果');
+        alert('✅ JSON数据导出成功!\n\n导出内容包括:\n- 学生完整信息\n- 6维度能力评估\n- 户籍居住信息\n- 房产信息\n- 入学资格评估\n- 民办意向与预算');
         
     } catch (error) {
         console.error('JSON导出失败:', error);
@@ -2133,3 +2585,5 @@ window.exportPDF = exportPDF;
 window.generateFullPdfReport = generateFullPdfReport;
 window.askCatAssistant = askCatAssistant;
 window.generateSchoolRecommendation = generateReport;
+window.getUserFullInfoString = getUserFullInfoString;
+window.showEnhancedSchoolRecommendations = showEnhancedSchoolRecommendations;
