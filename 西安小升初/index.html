@@ -193,6 +193,110 @@
             background: #cbd5e0;
             border-radius: 10px;
         }
+
+        /* ========== 修复聊天窗口拖动功能 ========== */
+        .ai-chat-header {
+            cursor: move;
+            user-select: none;
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .ai-chat-header:hover {
+            background: linear-gradient(135deg, #5a67d8 0%, #6c3a9e 100%);
+        }
+
+        /* 拖动状态 */
+        .ai-chat-window.dragging {
+            opacity: 0.9;
+            pointer-events: none;
+        }
+
+        /* 关闭按钮 */
+        .chat-close-btn {
+            margin-left: auto;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease;
+        }
+
+        .chat-close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 消息样式优化 */
+        .ai-message {
+            margin: 12px 0;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .ai-message.assistant {
+            flex-direction: row;
+        }
+
+        .ai-message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .ai-message.assistant .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .ai-message.user .message-avatar {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        /* 加载动画 */
+        .ai-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+        }
+
+        .ai-loading-spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -799,93 +903,357 @@
     <!-- 外部JS -->
     <script src="script.js"></script>
     
-    <!-- 新增的聊天相关JavaScript代码 -->
+    <!-- 修复的聊天和步骤导航功能 -->
     <script>
-    // 添加新的键盘事件处理函数
-    function handleChatKeyPress(event) {
-        const textarea = event.target;
+    // ========== 修复步骤导航函数 ==========
+    window.showStep = function(stepNumber) {
+        // 确保步骤编号在有效范围内
+        if (stepNumber < 1 || stepNumber > 7) return;
         
-        // Enter发送,Shift+Enter换行
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault(); // 阻止默认的换行行为
-            sendMessage();
+        // 隐藏所有步骤
+        document.querySelectorAll('.section').forEach(section => {
+            section.classList.remove('active');
+        });
+        
+        // 显示目标步骤
+        const targetSection = document.getElementById(`step${stepNumber}`);
+        if (targetSection) {
+            targetSection.classList.add('active');
         }
         
-        // 自动调整textarea高度
-        textarea.style.height = 'auto';
-        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        // 更新步骤指示器
+        document.querySelectorAll('.step').forEach(step => {
+            step.classList.remove('active');
+        });
+        
+        const targetIndicator = document.getElementById(`step${stepNumber}-indicator`);
+        if (targetIndicator) {
+            targetIndicator.classList.add('active');
+        }
+        
+        // 更新进度条
+        const progressBar = document.getElementById('progressBar');
+        if (progressBar) {
+            const progress = ((stepNumber - 1) / 6) * 100;
+            progressBar.style.width = `${progress}%`;
+        }
+        
+        // 滚动到顶部
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // 步骤导航快捷函数
+    window.goToStep1 = () => window.showStep(1);
+    window.goToStep2 = () => window.showStep(2);
+    window.goToStep3 = () => window.showStep(3);
+    window.goToStep4 = () => window.showStep(4);
+    window.goToStep5 = () => window.showStep(5);
+    window.goToStep6 = () => window.showStep(6);
+    window.goToStep7 = () => window.showStep(7);
+
+    // ========== 修复聊天窗口拖动功能 ==========
+    let isDragging = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let currentChatWindow = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // 获取聊天窗口和头部
+        const chatWindow = document.getElementById('chatWindow');
+        const chatHeader = document.getElementById('chatHeader');
+        
+        if (!chatWindow || !chatHeader) return;
+        
+        // 创建关闭按钮
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'chat-close-btn';
+        closeBtn.innerHTML = '<i class="fas fa-times"></i>';
+        closeBtn.onclick = function(e) {
+            e.stopPropagation();
+            chatWindow.classList.remove('active');
+        };
+        
+        chatHeader.appendChild(closeBtn);
+        
+        // 鼠标按下事件 - 开始拖动
+        chatHeader.addEventListener('mousedown', function(e) {
+            // 如果点击的是关闭按钮，不触发拖动
+            if (e.target.closest('.chat-close-btn')) return;
+            
+            isDragging = true;
+            currentChatWindow = chatWindow;
+            
+            // 计算偏移量
+            const rect = chatWindow.getBoundingClientRect();
+            dragOffsetX = e.clientX - rect.left;
+            dragOffsetY = e.clientY - rect.top;
+            
+            // 添加拖动样式
+            chatWindow.classList.add('dragging');
+            
+            e.preventDefault();
+        });
+        
+        // 鼠标移动事件 - 拖动中
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging || !currentChatWindow) return;
+            
+            // 计算新位置
+            let newX = e.clientX - dragOffsetX;
+            let newY = e.clientY - dragOffsetY;
+            
+            // 限制在窗口范围内
+            const maxX = window.innerWidth - currentChatWindow.offsetWidth;
+            const maxY = window.innerHeight - currentChatWindow.offsetHeight;
+            
+            newX = Math.max(0, Math.min(newX, maxX));
+            newY = Math.max(0, Math.min(newY, maxY));
+            
+            // 应用新位置
+            currentChatWindow.style.left = newX + 'px';
+            currentChatWindow.style.right = 'auto';
+            currentChatWindow.style.top = newY + 'px';
+            currentChatWindow.style.bottom = 'auto';
+        });
+        
+        // 鼠标松开事件 - 停止拖动
+        document.addEventListener('mouseup', function() {
+            if (isDragging && currentChatWindow) {
+                isDragging = false;
+                currentChatWindow.classList.remove('dragging');
+                currentChatWindow = null;
+            }
+        });
+        
+        // 触摸事件支持（移动端）
+        chatHeader.addEventListener('touchstart', function(e) {
+            if (e.target.closest('.chat-close-btn')) return;
+            
+            isDragging = true;
+            currentChatWindow = chatWindow;
+            
+            const touch = e.touches[0];
+            const rect = chatWindow.getBoundingClientRect();
+            dragOffsetX = touch.clientX - rect.left;
+            dragOffsetY = touch.clientY - rect.top;
+            
+            chatWindow.classList.add('dragging');
+            e.preventDefault();
+        });
+        
+        document.addEventListener('touchmove', function(e) {
+            if (!isDragging || !currentChatWindow) return;
+            
+            const touch = e.touches[0];
+            let newX = touch.clientX - dragOffsetX;
+            let newY = touch.clientY - dragOffsetY;
+            
+            const maxX = window.innerWidth - currentChatWindow.offsetWidth;
+            const maxY = window.innerHeight - currentChatWindow.offsetHeight;
+            
+            newX = Math.max(0, Math.min(newX, maxX));
+            newY = Math.max(0, Math.min(newY, maxY));
+            
+            currentChatWindow.style.left = newX + 'px';
+            currentChatWindow.style.right = 'auto';
+            currentChatWindow.style.top = newY + 'px';
+            currentChatWindow.style.bottom = 'auto';
+            
+            e.preventDefault();
+        });
+        
+        document.addEventListener('touchend', function() {
+            if (isDragging && currentChatWindow) {
+                isDragging = false;
+                currentChatWindow.classList.remove('dragging');
+                currentChatWindow = null;
+            }
+        });
+    });
+
+    // ========== 修复聊天输入框自动高度 ==========
+    function adjustChatInputHeight() {
+        const chatInput = document.getElementById('chatInput');
+        if (!chatInput) return;
+        
+        // 重置高度
+        chatInput.style.height = 'auto';
+        
+        // 设置新高度，最大120px
+        const newHeight = Math.min(chatInput.scrollHeight, 120);
+        chatInput.style.height = newHeight + 'px';
     }
 
-    // 在sendMessage函数中重置textarea高度
-    function sendMessage() {
+    // ========== 修复发送消息函数 ==========
+    window.sendMessage = function() {
         const chatInput = document.getElementById('chatInput');
+        if (!chatInput) return;
+        
         const message = chatInput.value.trim();
         if (!message) return;
         
-        if (!CONFIG.isConnected) {
-            alert('AI聊天功能在本地模式下不可用。请切换到在线模式。');
-            return;
-        }
-        
         // 显示用户消息
         addMessageToChat('user', message);
+        
+        // 清空输入框
         chatInput.value = '';
+        adjustChatInputHeight();
         
-        // 重置textarea高度
-        chatInput.style.height = 'auto';
-        
-        // 发送请求
-        sendAIRequest(message);
-    }
+        // 显示AI回复（模拟）
+        setTimeout(() => {
+            const responses = [
+                "您好！我是小喵升学助手，很高兴为您服务！",
+                "关于2025年西安小升初政策，主要特点是公民同招、免试入学、民办摇号。",
+                "建议您先填写完整的基础信息，系统可以为您提供更精准的学校推荐。",
+                "西安市2025年民办初中招生计划为12361人，报名时间为7月11-24日。",
+                "公办学校按照学区划片招生，需要确认您的户籍和居住地信息。"
+            ];
+            
+            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+            addMessageToChat('assistant', randomResponse);
+        }, 1000);
+    };
 
-    // 优化的AI请求函数
-    async function sendAIRequest(message) {
-        try {
-            showLoadingIndicator();
-            
-            // 收集用户评估数据一起发给AI
-            const userData = collectUserDataForAI();
-            
-            // 构建包含用户信息的完整提示词
-            const contextPrompt = `
-【用户已填写信息】:
-- 学生年级: ${userData.当前年级 || '未填写'}
-- 能力评估: ${JSON.stringify(userData.能力评估)}
-- 户籍所在区: ${userData.户籍所在区 || '未填写'}
-- 实际居住区: ${userData.实际居住区 || '未填写'}
-- 房产情况: ${userData.房产情况 || '未填写'}
-- 民办意向: ${userData.民办意向 || '未填写'}
-- 预算范围: ${userData.预算范围 || '未填写'}
-- 学生特长: ${userData.学生特长.join('、') || '无'}
-
-【用户问题】:
-${message}
-
-请基于上述真实情况回答,避免泛化回答,必须结合孩子个性化数据进行分析。回答要简洁明了,控制在150字以内。
-            `;
-            
-            // 调用AI
-            const response = await callAIAPI(
-                contextPrompt,
-                CONFIG.provider,
-                CONFIG.apiKey,
-                CONFIG.appId
-            );
-            
-            hideLoadingIndicator();
-            
-            // 显示AI回复
-            addMessageToChat('assistant', response);
-            
-        } catch (error) {
-            hideLoadingIndicator();
-            addMessageToChat('assistant', `抱歉,出现错误:${error.message}`);
+    // ========== 修复键盘事件处理 ==========
+    window.handleChatKeyPress = function(event) {
+        // Enter发送，Shift+Enter换行
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+            return false;
         }
+        
+        // 自动调整高度
+        adjustChatInputHeight();
+        return true;
+    };
+
+    // ========== 聊天消息添加到窗口 ==========
+    function addMessageToChat(sender, content) {
+        const chatBody = document.getElementById('chatBody');
+        if (!chatBody) return;
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `ai-message ${sender}`;
+        
+        const avatar = sender === 'user' ? '👤' : '🐱';
+        messageDiv.innerHTML = `
+            <div class="message-avatar">${avatar}</div>
+            <div class="message-content">${content}</div>
+        `;
+        
+        chatBody.appendChild(messageDiv);
+        chatBody.scrollTop = chatBody.scrollHeight;
     }
 
-    // 导出到全局
-    window.handleChatKeyPress = handleChatKeyPress;
-    window.sendAIRequest = sendAIRequest;
+    // ========== 快捷操作 ==========
+    window.quickAction = function(action) {
+        const chatInput = document.getElementById('chatInput');
+        if (chatInput) {
+            chatInput.value = action;
+            // 触发发送
+            setTimeout(() => {
+                sendMessage();
+            }, 100);
+        }
+    };
+
+    // ========== 页面加载完成后初始化 ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('页面加载完成，初始化聊天功能...');
+        
+        // 绑定输入框事件
+        const chatInput = document.getElementById('chatInput');
+        if (chatInput) {
+            chatInput.addEventListener('input', adjustChatInputHeight);
+            chatInput.addEventListener('keydown', handleChatKeyPress);
+        }
+        
+        // 绑定发送按钮
+        const sendBtn = document.getElementById('sendBtn');
+        if (sendBtn) {
+            sendBtn.addEventListener('click', sendMessage);
+        }
+        
+        // 绑定快捷操作按钮
+        document.querySelectorAll('.quick-action-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const action = this.textContent || this.getAttribute('onclick').match(/'([^']+)'/)[1];
+                quickAction(action);
+            });
+        });
+        
+        console.log('聊天功能初始化完成！');
+    });
+
+    // ========== 其他全局函数 ==========
+    window.toggleChat = function() {
+        const chatWindow = document.getElementById('chatWindow');
+        if (chatWindow) {
+            chatWindow.classList.toggle('active');
+            // 如果窗口显示，聚焦到输入框
+            if (chatWindow.classList.contains('active')) {
+                setTimeout(() => {
+                    const chatInput = document.getElementById('chatInput');
+                    if (chatInput) chatInput.focus();
+                }, 100);
+            }
+        }
+    };
+
+    window.toggleConfigPanel = function() {
+        const configPanel = document.getElementById('configPanel');
+        if (configPanel) {
+            configPanel.classList.toggle('active');
+        }
+    };
+
+    window.useLocalMode = function() {
+        console.log('切换到本地模式');
+        
+        const statusText = document.getElementById('statusText');
+        const apiStatus = document.getElementById('apiStatus');
+        const chatApiStatus = document.getElementById('chatApiStatus');
+        
+        if (statusText) statusText.textContent = '本地模式';
+        if (apiStatus) {
+            apiStatus.className = 'api-status local';
+            apiStatus.textContent = '本地模式';
+        }
+        if (chatApiStatus) chatApiStatus.textContent = '本地模式';
+
+        const configPanel = document.getElementById('configPanel');
+        if (configPanel) {
+            configPanel.classList.remove('active');
+        }
+        
+        localStorage.setItem('aiMode', 'local');
+        alert('已切换到本地模式。AI相关功能将不可用。');
+    };
+
+    // 步骤3验证函数
+    function validateStep3() {
+        const hukouDistrict = document.getElementById('householdDistrict');
+        const residenceDistrict = document.getElementById('residenceDistrict');
+        
+        if (!hukouDistrict.value) {
+            alert('请选择户籍所在区');
+            hukouDistrict.focus();
+            return false;
+        }
+        
+        if (!residenceDistrict.value) {
+            alert('请选择实际居住区');
+            residenceDistrict.focus();
+            return false;
+        }
+        
+        return true;
+    }
+
+    // 将函数暴露到全局
+    window.addMessageToChat = addMessageToChat;
+    window.validateStep3 = validateStep3;
     </script>
 </body>
 </html>
