@@ -1,6 +1,7 @@
 // ============================================
 // 西安小升初智能评估系统 v2.0 - 模块化优化版
 // 修复版 - 适配你的目录结构
+// 增强版 - 支持多种数据格式
 // ============================================
 
 // ========== 1. 拼音映射工具 ==========
@@ -274,22 +275,50 @@ class DataManager {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // 数据标准化
+    // ========== 数据标准化方法（增强版） ==========
+    
+    // 智能数据标准化 - 支持多种格式
     normalizeDistrictData(rawData, districtName) {
-        const publicSchools = this._normalizeSchoolArray(
-            rawData.public_schools || [],
-            districtName,
-            '公办'
-        );
-
-        const privateSchools = this._normalizeSchoolArray(
-            rawData.private_schools || [],
-            districtName,
-            '民办'
-        );
-
+        let publicSchools = [];
+        let privateSchools = [];
+        
+        // 情况1：有 public_schools 和 private_schools 字段（标准格式）
+        if (rawData.public_schools || rawData.private_schools) {
+            publicSchools = this._normalizeSchoolArray(
+                rawData.public_schools || [],
+                districtName,
+                '公办'
+            );
+            
+            privateSchools = this._normalizeSchoolArray(
+                rawData.private_schools || [],
+                districtName,
+                '民办'
+            );
+        }
+        // 情况2：只有 schools 字段（西咸新区格式）
+        else if (rawData.schools && Array.isArray(rawData.schools)) {
+            // 过滤出初中学校
+            const middleSchools = rawData.schools.filter(school => {
+                const stage = school.school_stage || school.level || '';
+                return stage.includes('初中') || !stage.includes('小学');
+            });
+            
+            publicSchools = this._normalizeSchoolArray(
+                middleSchools.filter(s => (s.type || '').includes('公办')),
+                districtName,
+                '公办'
+            );
+            
+            privateSchools = this._normalizeSchoolArray(
+                middleSchools.filter(s => (s.type || '').includes('民办')),
+                districtName,
+                '民办'
+            );
+        }
+        
         const allSchools = [...publicSchools, ...privateSchools];
-
+        
         return {
             name: districtName,
             schools: allSchools,
@@ -312,8 +341,20 @@ class DataManager {
             .filter(s => s !== null);
     }
 
+    // 智能学校标准化 - 支持多种格式
     normalizeSchool(school, districtName, defaultType) {
         if (!school || typeof school !== 'object') {
+            return null;
+        }
+
+        // 1. 处理西咸新区的特殊格式
+        const schoolStage = school.school_stage || school.level || '';
+        const isPrimarySchool = schoolStage.includes('小学') || school.level === '公办小学';
+        const isMiddleSchool = schoolStage.includes('初中') || school.level === '公办初中' || 
+                              school.level === '民办初中' || !isPrimarySchool;
+
+        // 如果不是初中学校，跳过（只处理初中）
+        if (isPrimarySchool && !isMiddleSchool) {
             return null;
         }
 
@@ -323,23 +364,157 @@ class DataManager {
             return null;
         }
 
+        // 2. 智能提取学区信息
+        const schoolDistrict = this._extractSchoolDistrict(school);
+        
+        // 3. 智能提取学校类型
+        const type = this.normalizeType(school.type || school.办学性质 || defaultType);
+        
+        // 4. 智能提取特色
+        const features = this._extractFeatures(school);
+        
+        // 5. 智能提取评分
+        const rating = this._extractRating(school);
+        
+        // 6. 智能提取学费
+        const tuition = this.normalizeTuition(school.tuition || school.fee || school.学费);
+        
+        // 7. 智能提取住宿信息
+        const hasBoarding = this._extractBoarding(school);
+        
+        // 8. 智能提取是否重点学校
+        const isKeySchool = this._extractIsKeySchool(school);
+
         return {
             id: school.id || this.generateId(school, districtName),
             name,
-            type: this.normalizeType(school.type || school.办学性质 || defaultType),
-            level: school.level || school.学段 || '初中',
+            type,
+            level: isMiddleSchool ? '初中' : '未知',
             district: school.district || school.newcity || districtName || '',
             address: school.address || school.location || '',
-            schoolDistrict: this._normalizeArray(school.学区 || school.schoolDistrict),
-            tuition: this.normalizeTuition(school.tuition || school.fee || school.学费),
-            features: this._normalizeArray(school.features || school.特色 || school.tags),
-            rating: this._normalizeRating(school),
-            hasBoarding: this._normalizeBoarding(school),
-            contactPhone: school.contact_phone || school.联系电话 || '',
+            schoolDistrict,
+            tuition,
+            features,
+            rating,
+            hasBoarding,
+            contactPhone: school.contact || school.contact_phone || school.联系电话 || '',
             website: school.website || '',
-            isKeySchool: this._isKeySchool(school),
+            isKeySchool,
             _raw: school
         };
+    }
+
+    // ========== 辅助提取方法 ==========
+    
+    _extractSchoolDistrict(school) {
+        // 优先级1：streets 数组
+        if (school.streets && Array.isArray(school.streets)) {
+            return school.streets.filter(Boolean).map(String);
+        }
+        
+        // 优先级2：学区 数组
+        if (school.学区 && Array.isArray(school.学区)) {
+            return school.学区.filter(Boolean).map(String);
+        }
+        
+        // 优先级3：学区 字符串（需要分割）
+        if (school.学区 && typeof school.学区 === 'string') {
+            return school.学区.split(/[、，,;；\s]+/).filter(Boolean).map(s => s.trim());
+        }
+        
+        // 优先级4：schoolDistrict 数组
+        if (school.schoolDistrict && Array.isArray(school.schoolDistrict)) {
+            return school.schoolDistrict.filter(Boolean).map(String);
+        }
+        
+        return [];
+    }
+
+    _extractFeatures(school) {
+        const features = [];
+        
+        // 1. 如果有 features 数组
+        if (school.features && Array.isArray(school.features)) {
+            features.push(...school.features.filter(Boolean).map(String));
+        }
+        
+        // 2. 如果有特色字段
+        if (school.特色 && Array.isArray(school.特色)) {
+            features.push(...school.特色.filter(Boolean).map(String));
+        }
+        
+        // 3. 从 admission_policy 提取
+        if (school.admission_policy) {
+            features.push(`入学政策:${school.admission_policy}`);
+        }
+        
+        // 4. 从其他字段提取
+        if (school.admissionProbability) {
+            features.push(`入学概率:${school.admissionProbability}`);
+        }
+        
+        return features;
+    }
+
+    _extractRating(school) {
+        // 优先级1：admissionRate
+        if (school.admissionRate !== undefined) {
+            return Math.max(0, Math.min(100, Number(school.admissionRate)));
+        }
+        
+        // 优先级2：rating
+        if (school.rating !== undefined) {
+            return Math.max(0, Math.min(100, Number(school.rating)));
+        }
+        
+        // 优先级3：admissionProbability 转成数字
+        if (school.admissionProbability) {
+            switch(school.admissionProbability) {
+                case '高': return 85;
+                case '中': return 70;
+                case '低': return 50;
+                default: return 60;
+            }
+        }
+        
+        // 默认值
+        return 60;
+    }
+
+    _extractBoarding(school) {
+        // 1. 直接布尔值
+        if (typeof school.hasBoarding === 'boolean') return school.hasBoarding;
+        
+        // 2. 字符串判断
+        if (typeof school.hasBoarding === 'string') {
+            const b = school.hasBoarding.toLowerCase();
+            return b.includes('是') || b.includes('有') || b.includes('yes');
+        }
+        
+        // 3. 从 features 判断
+        if (school.features && Array.isArray(school.features)) {
+            return school.features.some(f => 
+                f.toLowerCase().includes('住宿') || 
+                f.toLowerCase().includes('寄宿') ||
+                f.toLowerCase().includes('boarding')
+            );
+        }
+        
+        // 默认不提供住宿
+        return false;
+    }
+
+    _extractIsKeySchool(school) {
+        // 1. 直接布尔值
+        if (typeof school.is_key_school === 'boolean') return school.is_key_school;
+        
+        // 2. 从名称判断
+        const name = this._extractName(school).toLowerCase();
+        const keySchoolKeywords = ['重点', '示范', '实验', '一中', '二中', '附中'];
+        
+        return keySchoolKeywords.some(keyword => 
+            name.includes(keyword.toLowerCase())
+        );
     }
 
     _extractName(school) {
@@ -2411,7 +2586,7 @@ window.debugApp = {
 // 版本信息
 console.log(`
 %c西安小升初智能评估系统 v2.0
-%c优化版 - 适配你的目录结构
+%c增强版 - 支持多种数据格式
 %c© 2025 - 技术支持`,
 'color: #3b82f6; font-size: 16px; font-weight: bold;',
 'color: #10b981; font-size: 12px;',
