@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>西安小升初智能评估系统 2025增强版</title>
+    <!-- 外部CSS和字体 -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 聊天窗口样式修复 -->
+    <style>
+        /* ========== 修复聊天窗口样式 ========== */
+
+        /* 聊天窗口可调整大小 */
+        .ai-chat-window {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 400px;
+            max-width: 90vw;
+            height: 600px;
+            max-height: 80vh;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+            /* 允许调整大小 */
+            resize: both;
+            overflow: hidden;
+            min-width: 320px;
+            min-height: 400px;
+        }
+
+        .ai-chat-window.active {
+            display: flex;
+        }
+
+        /* 聊天输入框 - 支持多行输入 */
+        .chat-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical; /* 允许垂直调整大小 */
+            min-height: 42px;
+            max-height: 120px;
+            line-height: 1.5;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow-y: auto; /* 内容超出时显示滚动条 */
+            word-wrap: break-word;
+            white-space: pre-wrap; /* 保留换行和空格 */
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* 输入框容器 */
+        .chat-input-group {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end; /* 按钮与输入框底部对齐 */
+            padding: 12px 15px;
+            border-top: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+
+        /* 发送按钮 */
+        .send-btn {
+            flex-shrink: 0;
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 聊天消息内容自动换行 */
+        .message-content {
+            background: #f0f9ff;
+            padding: 12px 16px;
+            border-radius: 12px;
+            max-width: 80%;
+            word-wrap: break-word;
+            word-break: break-word;
+            white-space: pre-wrap; /* 保留换行 */
+            line-height: 1.6;
+            overflow-wrap: break-word;
+        }
+
+        .ai-message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin-left: auto;
+        }
+
+        /* 聊天窗口主体自动滚动 */
+        .ai-chat-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #ffffff;
+        }
+
+        /* 快捷操作按钮 */
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            padding: 0 15px 12px 15px;
+            flex-wrap: wrap;
+            background: #f8fafc;
+        }
+
+        .quick-action-btn {
+            padding: 6px 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .quick-action-btn:hover {
+            background: #f0f9ff;
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .ai-chat-window {
+                width: 100%;
+                height: 100%;
+                max-width: 100%;
+                max-height: 100%;
+                bottom: 0;
+                right: 0;
+                border-radius: 0;
+                resize: none; /* 移动端禁用调整大小 */
+            }
+            
+            .chat-input {
+                font-size: 16px; /* 防止iOS自动缩放 */
+            }
+        }
+
+        /* 滚动条美化 */
+        .ai-chat-body::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .ai-chat-body::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .ai-chat-body::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 10px;
+        }
+
+        .ai-chat-body::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0;
+        }
+
+        .chat-input::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .chat-input::-webkit-scrollbar-thumb {
+            background: #cbd5e0;
+            border-radius: 10px;
+        }
+    </style>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PDF导出库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Local Data -->
+    <script src="data/faq.js"></script>
+    <script src="data/schools.js"></script>
+    <script src="data/citations.js"></script>
+    <script src="data/policy.js"></script>
+</head>
+<body>
+    <!-- API状态指示器 -->
+    <div class="api-status local" id="apiStatus" onclick="toggleConfigPanel()">
+        <i class="fas fa-laptop"></i> <span id="statusText">本地模式</span>
+    </div>
+    
+    <!-- API配置面板 -->
+    <div class="config-panel" id="configPanel">
+        <div class="config-title"><i class="fas fa-key"></i> 模型与API配置</div>
+        <div class="config-status info" id="configStatus">配置后将启用 AI 增强模式（请求经本站后端统一转发）</div>
+        <input type="password" class="config-input" id="apiKeyInput" placeholder="API Key (sk-开头或控制台生成)">
+        <input type="text" class="config-input" id="appIdInput" placeholder="APP ID（仅百炼需要）">
+        <select class="config-input" id="providerSelect">
+            <option value="bailian">阿里百炼/通义</option>
+            <option value="google">Google Gemini</option>
+            <option value="openai">OpenAI</option>
+            <option value="deepseek">DeepSeek</option>
+        </select>
+        <button class="config-btn" onclick="saveAndTestConfig()"><i class="fas fa-plug"></i> 保存并测试</button>
+        <button class="config-btn secondary" onclick="useLocalMode()"><i class="fas fa-laptop"></i> 使用本地模式</button>
+        <div class="config-help" id="providerHelp">
+            <strong>通用说明：</strong><br>
+            - 前端仅访问本站 <code>/api/ai</code>，由后端转发到所选模型提供商，避免跨域与地域限制。<br>
+            - 请在部署平台的环境变量中配置密钥，前端不保存密钥。<br>
+            - 如需移动端全国可用：建议使用国内节点部署后端并开启 HTTPS/CDN；避免直连境外模型。<br>
+            <br>
+            <strong>阿里百炼/通义：</strong><br>
+            - 需设置环境变量：<code>BAILIAN_API_KEY</code>、<code>BAILIAN_APP_ID</code><br>
+            - 控制台：<a href="https://bailian.console.aliyun.com" target="_blank">阿里云百炼控制台</a><br>
+            <br>
+            <strong>Google Gemini：</strong><br>
+            - 需设置环境变量：<code>GOOGLE_API_KEY</code><br>
+            - 建议通过本站后端转发以获得最佳体验。<br>
+            <br>
+            <strong>OpenAI：</strong><br>
+            - 需设置：<code>OPENAI_API_KEY</code>（可选 <code>OPENAI_MODEL</code>，默认 gpt-4o-mini）<br>
+            - 建议通过本站后端转发，客户端不直连，避免被移动网络/地域策略影响。<br>
+            <br>
+            <strong>DeepSeek：</strong><br>
+            - 需设置：<code>DEEPSEEK_API_KEY</code>（可选 <code>DEEPSEEK_MODEL</code>，默认 deepseek-chat）<br>
+            - 访问频繁时建议开启后端 Keep-Alive 与重试策略。<br>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="progress-bar" id="progressBar"></div>
+        
+        <h1>🎓 西安小升初智能评估系统 <span class="ai-badge">2025增强版</span></h1>
+        <p class="subtitle">基于权威知识 · 实时更新 · 多重验证 · 深度个性化</p>
+        
+        <!-- PDF导出按钮 -->
+        <div style="margin: 20px 0; text-align: center;">
+            <button id="exportFullPdfBtn" class="btn btn-primary" style="margin: 10px;">
+                <i class="fas fa-file-pdf"></i> 📄 导出完整版升学报告 PDF
+            </button>
+        </div>
+        
+        <!-- AI助手 -->
+        <div class="ai-assistant">
+            <button class="ai-assistant-btn" onclick="toggleChat()">🐱</button>
+            <div class="ai-chat-window" id="chatWindow">
+                <div class="ai-chat-header" id="chatHeader">
+                    <div style="font-size: 32px;">🐱</div>
+                    <div>
+                        <div style="font-weight: 600;">小喵升学助手</div>
+                        <div style="font-size: 12px; opacity: 0.8;" id="chatApiStatus">本地模式</div>
+                    </div>
+                </div>
+                <div class="ai-chat-body" id="chatBody">
+                    <div class="ai-message assistant">
+                        <div class="message-avatar">🐱</div>
+                        <div class="message-content">
+                            喵~您好！我是基于2025年西安义务教育政策的升学助手！
+                            <br>📋 政策：公民同招、免试入学
+                            <br>🏫 民办：28所学校，计划招生12361人
+                            <br>📅 报名：7月11日-24日
+                            <br>🎲 摇号：7月30日
+                            <br>有什么可以帮您的？
+                            <div class="source-info">
+                                <span class="trust-badge trust-official">官方数据</span>
+                                信息来源：西安市教育局 2025年招生政策
+                                <div class="timestamp">更新时间：2025-01-15</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- 替换为修复后的聊天输入部分 -->
+                <div class="ai-chat-input">
+                    <div class="chat-input-group">
+                        <!-- 将input改为textarea支持多行输入 -->
+                        <textarea 
+                            class="chat-input" 
+                            id="chatInput" 
+                            placeholder="输入问题...&#10;Shift+Enter换行,Enter发送"
+                            rows="1"
+                            onkeydown="handleChatKeyPress(event)"
+                        ></textarea>
+                        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    <div class="quick-actions">
+                        <button class="quick-action-btn" onclick="quickAction('2026年小升初时间安排')">时间安排</button>
+                        <button class="quick-action-btn" onclick="quickAction('民办学校有哪些')">民办学校</button>
+                        <button class="quick-action-btn" onclick="quickAction('摇号政策')">摇号政策</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 重要通知 -->
+        <div class="important-notice">
+            <h3>📋 2025年西安义务教育招生政策要点</h3>
+            <ul>
+                <li><strong>免试就近入学：</strong>公办学校按学区划片招生，严禁考试选拔</li>
+                <li><strong>公民同招：</strong>民办与公办同步报名(7月11-24日)、同步招生</li>
+                <li><strong>电脑随机录取：</strong>民办报名超计划的实行摇号，7月30日统一进行</li>
+                <li><strong>招生平台：</strong>统一使用陕西"教育入学一件事"招生平台</li>
+                <li><strong>民办规模：</strong>全市28所民办初中，计划招生12361人</li>
+                <li><strong>西咸新区纳入城六区招生：</strong>西咸新区与城六区招生政策统一</li>
+            </ul>
+            <div class="source-info" style="margin-top: 15px; color: rgba(255,255,255,0.8);">
+                <span class="trust-badge trust-official">官方发布</span>
+                数据来源：西安市教育局官方网站
+                <div class="timestamp">政策发布日期：2025-01-10</div>
+            </div>
+        </div>
+
+        <!-- 步骤指示器 - 更新为7步 -->
+        <div class="step-indicator">
+            <div class="step active" id="step1-indicator" onclick="showStep(1)"><div class="step-number">1</div><div class="step-label">基础信息</div></div>
+            <div class="step" id="step2-indicator" onclick="showStep(2)"><div class="step-number">2</div><div class="step-label">能力评估</div></div>
+            <div class="step" id="step3-indicator" onclick="showStep(3)"><div class="step-number">3</div><div class="step-label">户籍与居住</div></div>
+            <div class="step" id="step4-indicator" onclick="showStep(4)"><div class="step-number">4</div><div class="step-label">学区房产</div></div>
+            <div class="step" id="step5-indicator" onclick="showStep(5)"><div class="step-number">5</div><div class="step-label">民办意向</div></div>
+            <div class="step" id="step6-indicator" onclick="showStep(6)"><div class="step-number">6</div><div class="step-label">能力分析</div></div>
+            <div class="step" id="step7-indicator" onclick="showStep(7)"><div class="step-number">7</div><div class="step-label">AI推荐</div></div>
+        </div>
+
+        <!-- 步骤1：基础信息 -->
+        <div id="step1" class="section active">
+            <!-- 修正后的学生年级信息 -->
+            <div class="dimension-card">
+                <div class="dimension-title">🎓 学生当前年级</div>
+                <div class="dimension-desc">选择学生当前所在年级，用于精确的时间规划</div>
+                <div class="score-options">
+                    <div class="score-option">
+                        <input type="radio" name="currentGrade" id="grade6" value="六年级" checked>
+                        <label for="grade6" class="score-label">
+                            <span class="score-number">六年级</span>
+                            <span class="score-desc">2026年小升初</span>
+                        </label>
+                    </div>
+                    <div class="score-option">
+                        <input type="radio" name="currentGrade" id="grade5" value="五年级">
+                        <label for="grade5" class="score-label">
+                            <span class="score-number">五年级</span>
+                            <span class="score-desc">2027年小升初</span>
+                        </label>
+                    </div>
+                    <div class="score-option">
+                        <input type="radio" name="currentGrade" id="grade4" value="四年级">
+                        <label for="grade4" class="score-label">
+                            <span class="score-number">四年级</span>
+                            <span class="score-desc">2028年小升初</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dimension-card">
+                <div class="dimension-title">👦 学生基本信息</div>
+                <div class="dimension-desc">填写学生基本资料</div>
+                <div class="info-group">
+                    <label class="info-label">学生姓名（可选）</label>
+                    <input type="text" class="info-input" id="studentName" placeholder="请输入学生姓名">
+                </div>
+                <div class="info-group">
+                    <label class="info-label">学生性别</label>
+                    <select class="info-select" id="studentGender">
+                        <option value="">请选择</option>
+                        <option value="男">男生</option>
+                        <option value="女">女生</option>
+                    </select>
+                </div>
+                <div class="info-group">
+                    <label class="info-label">所在小学（可选）</label>
+                    <input type="text" class="info-input" id="currentSchool" placeholder="请输入所在小学名称">
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="goToStep2()">下一步：能力评估 →</button>
+            </div>
+        </div>
+
+        <!-- 步骤2：能力评估 -->
+        <div id="step2" class="section">
+            <div class="dimension-card">
+                <div class="dimension-title">📚 维度一：学业成绩</div>
+                <div class="dimension-desc">评估孩子在班级/年级的学业成绩排名情况</div>
+                <div class="score-options">
+                    <div class="score-option"><input type="radio" name="score1" id="s1-5" value="5"><label for="s1-5" class="score-label"><span class="score-number">5</span><span class="score-desc">年级前5%</span></label></div>
+                    <div class="score-option"><input type="radio" name="score1" id="s1-4" value="4"><label for="s1-4" class="score-label"><span class="score-number">4</span><span class="score-desc">年级前15%</span></label></div>
+                    <div class="score-option"><input type="radio" name="score1" id="s1-3" value="3"><label for="s1-3" class="score-label"><span class="score-number">3</span><span class="score-desc">年级前30%</span></label></div>
+                    <div class="score-option"><input type="radio" name="score1" id="s1-2" value="2"><label for="s1-2" class="score-label"><span class="score-number">2</span><span class="score-desc">年级前50%</span></label></div>
+                    <div class="score-option"><input type="radio" name="score1" id="s1-1" value="1"><label for="s1-1" class="score-label"><span class="score-number">1</span><span class="score-desc">年级50%后</span></label></div>
+                </div>
+            </div>
+            
+            <div class="dimension-card">
+                <div class="dimension-title">🎨 维度二：综合素养</div>
+                <div class="dimension-desc">特长、获奖情况和综合发展水平</div>
+                <div class="score-options">
+                    <div class="score-option"><input type="radio" name="score2" id="s2-5" value="5"><label for="s2-5" class="score-label"><span class="score-number">5</span><span class="score-desc">省级获奖</span></label></div>
+                    <div class="score-option"><input type="radio" name="score2" id="s2-4" value="4"><label for="s2-4" class="score-label"><span class="score-number">4</span><span class="score-desc">市级证书</span></label></div>
+                    <div class="score-option"><input type="radio" name="score2" id="s2-3" value="3"><label for="s2-3" class="score-label"><span class="score-number">3</span><span class="score-desc">校级获奖</span></label></div>
+                    <div class="score-option"><input type="radio" name="score2" id="s2-2" value="2"><label for="s2-2" class="score-label"><span class="score-number">2</span><span class="score-desc">参与活动</span></label></div>
+                    <div class="score-option"><input type="radio" name="score2" id="s2-1" value="1"><label for="s2-1" class="score-label"><span class="score-number">1</span><span class="score-desc">较少参与</span></label></div>
+                </div>
+            </div>
+
+            <div class="dimension-card">
+                <div class="dimension-title">📖 维度三：学习习惯</div>
+                <div class="dimension-desc">自律性和学习主动性</div>
+                <div class="score-options">
+                    <div class="score-option"><input type="radio" name="score3" id="s3-5" value="5"><label for="s3-5" class="score-label"><span class="score-number">5</span><span class="score-desc">非常自律</span></label></div>
+                    <div class="score-option"><input type="radio" name="score3" id="s3-4" value="4"><label for="s3-4" class="score-label"><span class="score-number">4</span><span class="score-desc">较为自律</span></label></div>
+                    <div class="score-option"><input type="radio" name="score3" id="s3-3" value="3"><label for="s3-3" class="score-label"><span class="score-number">3</span><span class="score-desc">需要监督</span></label></div>
+                    <div class="score-option"><input type="radio" name="score3" id="s3-2" value="2"><label for="s3-2" class="score-label"><span class="score-number">2</span><span class="score-desc">需多督促</span></label></div>
+                    <div class="score-option"><input type="radio" name="score3" id="s3-1" value="1"><label for="s3-1" class="score-label"><span class="score-number">1</span><span class="score-desc">习惯较差</span></label></div>
+                </div>
+            </div>
+
+            <div class="dimension-card">
+                <div class="dimension-title">💪 维度四：心理素质</div>
+                <div class="dimension-desc">抗压能力和心理承受能力</div>
+                <div class="score-options">
+                    <div class="score-option"><input type="radio" name="score4" id="s4-5" value="5"><label for="s4-5" class="score-label"><span class="score-number">5</span><span class="score-desc">抗压很强</span></label></div>
+                    <div class="score-option"><input type="radio" name="score4" id="s4-4" value="4"><label for="s4-4" class="score-label"><span class="score-number">4</span><span class="score-desc">心态稳定</span></label></div>
+                    <div class="score-option"><input type="radio" name="score4" id="s4-3" value="3"><label for="s4-3" class="score-label"><span class="score-number">3</span><span class="score-desc">一般水平</span></label></div>
+                    <div class="score-option"><input type="radio" name="score4" id="s4-2" value="2"><label for="s4-2" class="score-label"><span class="score-number">2</span><span class="score-desc">容易焦虑</span></label></div>
+                    <div class="score-option"><input type="radio" name="score4" id="s4-1" value="1"><label for="s4-1" class="score-label"><span class="score-number">1</span><span class="score-desc">需要关注</span></label></div>
+                </div>
+            </div>
+
+            <div class="dimension-card">
+                <div class="dimension-title">👨‍👩‍👧 维度五：家庭支持</div>
+                <div class="dimension-desc">家庭在时间、经济、精力方面的支持</div>
+                <div class="score-options">
+                    <div class="score-option"><input type="radio" name="score5" id="s5-5" value="5"><label for="s5-5" class="score-label"><span class="score-number">5</span><span class="score-desc">全力支持</span></label></div>
+                    <div class="score-option"><input type="radio" name="score5" id="s5-4" value="4"><label for="s5-4" class="score-label"><span class="score-number">4</span><span class="score-desc">积极支持</span></label></div>
+                    <div class="score-option"><input type="radio" name="score5" id="s5-3" value="3"><label for="s5-3" class="score-label"><span class="score-number">3</span><span class="score-desc">一般支持</span></label></div>
+                    <div class="score-option"><input type="radio" name="score5" id="s5-2" value="2"><label for="s5-2" class="score-label"><span class="score-number">2</span><span class="score-desc">有限支持</span></label></div>
+                    <div class="score-option"><input type="radio" name="score5" id="s5-1" value="1"><label for="s5-1" class="score-label"><span class="score-number">1</span><span class="score-desc">支持不足</span></label></div>
+                </div>
+            </div>
+
+            <div class="dimension-card">
+                <div class="dimension-title">🔬 维度六：学科倾向</div>
+                <div class="dimension-desc">孩子的学科优势和兴趣方向</div>
+                <div class="score-options">
+                    <div class="score-option"><input type="radio" name="score6" id="s6-5" value="5"><label for="s6-5" class="score-label"><span class="score-number">5</span><span class="score-desc">理科优势</span></label></div>
+                    <div class="score-option"><input type="radio" name="score6" id="s6-4" value="4"><label for="s6-4" class="score-label"><span class="score-number">4</span><span class="score-desc">文科优势</span></label></div>
+                    <div class="score-option"><input type="radio" name="score6" id="s6-3" value="3"><label for="s6-3" class="score-label"><span class="score-number">3</span><span class="score-desc">均衡发展</span></label></div>
+                    <div class="score-option"><input type="radio" name="score6" id="s6-2" value="2"><label for="s6-2" class="score-label"><span class="score-number">2</span><span class="score-desc">有偏科</span></label></div>
+                    <div class="score-option"><input type="radio" name="score6" id="s6-1" value="1"><label for="s6-1" class="score-label"><span class="score-number">1</span><span class="score-desc">学习困难</span></label></div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="goToStep1()">← 上一步</button>
+                <button class="btn btn-primary" onclick="goToStep3()">下一步：户籍与居住信息 →</button>
+            </div>
+        </div>
+
+        <!-- 步骤3：户籍与居住信息 -->
+        <div id="step3" class="section">
+            <div class="info-section">
+                <h3>🏠 户籍与居住信息</h3>
+                <p style="color: #718096; margin-bottom: 20px; font-size: 14px;">请准确填写户籍和实际居住信息，这将直接影响公办学校匹配和入学顺位评估</p>
+                
+                <div class="location-grid">
+                    <!-- 户籍信息 -->
+                    <div class="location-section">
+                        <h4>📍 户籍信息</h4>
+                        <div class="info-group">
+                            <label class="info-label">户籍所在区 <span style="color: #e53e3e;">*</span></label>
+                            <select class="info-select" id="householdDistrict">
+                                <option value="">请选择区</option>
+                                <option value="新城区">新城区</option>
+                                <option value="碑林区">碑林区</option>
+                                <option value="莲湖区">莲湖区</option>
+                                <option value="雁塔区">雁塔区</option>
+                                <option value="灞桥区">灞桥区</option>
+                                <option value="未央区">未央区</option>
+                                <option value="阎良区">阎良区</option>
+                                <option value="临潼区">临潼区</option>
+                                <option value="长安区">长安区</option>
+                                <option value="高陵区">高陵区</option>
+                                <option value="鄠邑区">鄠邑区</option>
+                                <option value="蓝田县">蓝田县</option>
+                                <option value="周至县">周至县</option>
+                                <option value="西咸新区">西咸新区</option>
+                                <option value="高新区">高新区</option>
+                                <option value="经开区">经开区</option>
+                                <option value="曲江新区">曲江新区</option>
+                                <option value="浐灞国际港（浐灞片区）">浐灞国际港（浐灞片区）</option>
+                                <option value="浐灞国际港（港务片区）">浐灞国际港（港务片区）</option>
+                                <option value="航天基地">航天基地</option>
+                                <option value="外地户籍">外地户籍</option>
+                            </select>
+                        </div>
+                        <div class="info-group">
+                            <label class="info-label">户籍所在街道</label>
+                            <select class="info-select" id="householdStreet">
+                                <option value="">请先选择区</option>
+                            </select>
+                        </div>
+                        <div class="info-group">
+                            <label class="info-label">户籍详细地址（可选）</label>
+                            <input type="text" class="info-input" id="householdAddress" placeholder="例如：XX小区XX号楼XX单元">
+                        </div>
+                    </div>
+                    
+                    <!-- 居住信息 -->
+                    <div class="location-section">
+                        <h4>🏡 实际居住信息</h4>
+                        <div class="info-group">
+                            <label class="info-label">实际居住区 <span style="color: #e53e3e;">*</span></label>
+                            <select class="info-select" id="residenceDistrict">
+                                <option value="">请选择区</option>
+                                <option value="新城区">新城区</option>
+                                <option value="碑林区">碑林区</option>
+                                <option value="莲湖区">莲湖区</option>
+                                <option value="雁塔区">雁塔区</option>
+                                <option value="灞桥区">灞桥区</option>
+                                <option value="未央区">未央区</option>
+                                <option value="阎良区">阎良区</option>
+                                <option value="临潼区">临潼区</option>
+                                <option value="长安区">长安区</option>
+                                <option value="高陵区">高陵区</option>
+                                <option value="鄠邑区">鄠邑区</option>
+                                <option value="蓝田县">蓝田县</option>
+                                <option value="周至县">周至县</option>
+                                <option value="西咸新区">西咸新区</option>
+                                <option value="高新区">高新区</option>
+                                <option value="经开区">经开区</option>
+                                <option value="曲江新区">曲江新区</option>
+                                <option value="浐灞国际港（浐灞片区）">浐灞国际港（浐灞片区）</option>
+                                <option value="浐灞国际港（港务片区）">浐灞国际港（港务片区）</option>
+                                <option value="航天基地">航天基地</option>
+                            </select>
+                        </div>
+                        <div class="info-group">
+                            <label class="info-label">实际居住街道</label>
+                            <select class="info-select" id="residenceStreet">
+                                <option value="">请先选择区</option>
+                            </select>
+                        </div>
+                        <div class="info-group">
+                            <label class="info-label">居住详细地址</label>
+                            <input type="text" class="info-input" id="residenceAddress" placeholder="例如：XX小区XX号楼XX单元">
+                        </div>
+                        <div class="info-group">
+                            <label class="info-label">居住性质</label>
+                            <select class="info-select" id="residenceType">
+                                <option value="">请选择</option>
+                                <option value="自有房产">自有房产</option>
+                                <option value="租房">租房</option>
+                                <option value="单位宿舍">单位宿舍</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 居住匹配情况 -->
+                <div class="info-group">
+                    <label class="info-label">户籍与居住地匹配情况</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" id="sameDistrict"> 户籍区与居住区相同</label>
+                        <label class="checkbox-label"><input type="checkbox" id="sameStreet"> 户籍街道与居住街道相同</label>
+                        <label class="checkbox-label"><input type="checkbox" id="inSchoolDistrict"> 在学区内居住</label>
+                    </div>
+                </div>
+                
+                <div class="transport-info">
+                    <h5>🚗 交通便利性评估</h5>
+                    <p style="font-size: 13px; color: #4a5568;">系统将根据您的居住位置评估到推荐学校的通勤时间，优先推荐交通便利的学校</p>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="goToStep2()">← 上一步</button>
+                <button class="btn btn-primary" onclick="if(validateStep3()) goToStep4()">下一步：学区房产信息 →</button>
+            </div>
+        </div>
+
+        <!-- 步骤4：学区房产信息 -->
+        <div id="step4" class="section">
+            <div class="info-section">
+                <h3>📋 学区房产信息</h3>
+                <p style="color: #718096; margin-bottom: 20px; font-size: 14px;">公办学校入学资格相关信息，请如实填写</p>
+                
+                <div class="info-group">
+                    <label class="info-label">学区房情况</label>
+                    <select class="info-select" id="hasHouse">
+                        <option value="">请选择</option>
+                        <option value="yes-good">有，对口优质公办</option>
+                        <option value="yes-normal">有，对口一般公办</option>
+                        <option value="no">暂无学区房</option>
+                        <option value="rent">租房居住</option>
+                    </select>
+                </div>
+                
+                <div class="info-group">
+                    <label class="info-label">房产证类型</label>
+                    <select class="info-select" id="propertyType">
+                        <option value="">请选择</option>
+                        <option value="商品房">商品房</option>
+                        <option value="房改房">房改房</option>
+                        <option value="安置房">安置房</option>
+                        <option value="经济适用房">经济适用房</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                
+                <div class="info-group">
+                    <label class="info-label">房产持有时间</label>
+                    <select class="info-select" id="propertyYears">
+                        <option value="">请选择</option>
+                        <option value="3年以上">3年以上</option>
+                        <option value="1-3年">1-3年</option>
+                        <option value="1年以内">1年以内</option>
+                        <option value="新购">新购（未满1年）</option>
+                    </select>
+                </div>
+                
+                <div class="info-group">
+                    <label class="info-label">预估入学顺位</label>
+                    <div style="background: #f0fff4; padding: 15px; border-radius: 8px; border: 1px solid #c6f6d5;">
+                        <div id="admissionPriority" style="color: #276749; font-weight: 600;">请填写以上信息后自动评估</div>
+                        <div id="priorityReason" style="color: #718096; font-size: 13px; margin-top: 5px;">基于西安市公办入学政策评估</div>
+                    </div>
+                    <button class="btn-ai-interpret" onclick="interpretPolicy()" id="interpretBtn" style="margin-top: 10px; width:100%;"><i class="fas fa-brain"></i> AI为你解读顺位</button>
+                    <div id="interpretationResult" class="ai-interpretation-box"></div>
+
+                </div>
+                
+                <div class="policy-box">
+                    <h4>📝 西安市公办入学顺位说明</h4>
+                    <p><strong>第一顺位：</strong>房户一致，且在学区内居住</p>
+                    <p><strong>第二顺位：</strong>房户一致，但跨学区居住</p>
+                    <p><strong>第三顺位：</strong>集体户/挂靠户，无学区房</p>
+                    <p><strong>第四顺位：</strong>租房居住，统筹安排入学</p>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="goToStep3()">← 上一步</button>
+                <button class="btn btn-primary" onclick="goToStep5()">下一步：民办意向与预算 →</button>
+            </div>
+        </div>
+
+        <!-- 步骤5：民办意向与预算 -->
+        <div id="step5" class="section">
+            <div class="info-section">
+                <h3>💰 民办意向与预算</h3>
+                
+                <div class="info-group">
+                    <label class="info-label">是否考虑民办学校</label>
+                    <select class="info-select" id="considerPrivate">
+                        <option value="">请选择</option>
+                        <option value="yes">是，愿意参加摇号</option>
+                        <option value="cautious">观望中，看情况决定</option>
+                        <option value="no">否，只考虑公办</option>
+                    </select>
+                </div>
+                
+                <div class="info-group">
+                    <label class="info-label">可接受的跨区范围</label>
+                    <select class="info-select" id="crossDistrictPreference">
+                        <option value="">请选择</option>
+                        <option value="本区">仅限本区学校</option>
+                        <option value="相邻区">本区及相邻区</option>
+                        <option value="全市范围">全市范围均可</option>
+                    </select>
+                </div>
+                
+                <div class="info-group">
+                    <label class="info-label">民办学校预算（初中三年）</label>
+                    <select class="info-select" id="budget">
+                        <option value="">请选择</option>
+                        <option value="low">3万以内（公办为主）</option>
+                        <option value="medium">3-10万（可考虑民办）</option>
+                        <option value="high">10万以上（民办无压力）</option>
+                    </select>
+                </div>
+                
+                <div class="info-group">
+                    <label class="info-label">对摇号不确定性的态度</label>
+                    <select class="info-select" id="acceptLottery">
+                        <option value="">请选择</option>
+                        <option value="yes">接受，愿意冲刺热门校</option>
+                        <option value="cautious">谨慎，希望稳妥为主</option>
+                        <option value="no">不接受，必须确定性</option>
+                    </select>
+                </div>
+                
+                <div class="info-group">
+                    <label class="info-label">孩子特长（可多选）</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label"><input type="checkbox" value="数学" name="specialty" class="strength-check"> 数学</label>
+                        <label class="checkbox-label"><input type="checkbox" value="语文" name="specialty" class="strength-check"> 语文</label>
+                        <label class="checkbox-label"><input type="checkbox" value="英语" name="specialty" class="strength-check"> 英语</label>
+                        <label class="checkbox-label"><input type="checkbox" value="艺术" name="specialty" class="strength-check"> 艺术</label>
+                        <label class="checkbox-label"><input type="checkbox" value="体育" name="specialty" class="strength-check"> 体育</label>
+                        <label class="checkbox-label"><input type="checkbox" value="科技" name="specialty" class="strength-check"> 科技</label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="goToStep4()">← 上一步</button>
+                <button class="btn btn-primary" onclick="goToStep6()">下一步：能力分析 →</button>
+            </div>
+        </div>
+
+        <!-- 步骤6：能力分析（新增页面） -->
+        <div id="step6" class="section">
+            <div class="result-card">
+                <div class="result-title">📊 学生能力雷达图</div>
+                <div class="chart-container" style="width: 90%; max-width: 600px; margin: 20px auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                    <canvas id="abilityChart" width="400" height="300"></canvas>
+                    <div id="abilityAnalysis" class="ai-interpretation-box" style="text-align: left; margin-top: 30px;"></div>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="goToStep5()">← 上一步</button>
+                <button class="btn btn-primary" onclick="generateReport()">生成完整报告 →</button>
+            </div>
+        </div>
+
+        <!-- 步骤7：AI推荐（原步骤6） -->
+        <div id="step7" class="section">
+            <div id="familyProfile" class="family-profile-card"></div>
+
+            <div class="result-card">
+                <div class="result-title">🏫 AI智能学校推荐</div>
+                <div id="schoolRecommendation">
+                    <div class="ai-loading">
+                        <div class="ai-loading-spinner"></div>
+                        <p>AI正在基于您的信息进行深度分析...</p>
+                        <div class="source-info">
+                            <span class="trust-badge trust-verified">多重验证中</span>
+                            正在验证信息准确性和时效性
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="result-card">
+                <div class="result-title">📅 个性化时间规划</div>
+                <div id="timeline"></div>
+            </div>
+            
+            <div class="result-card">
+                <div class="result-title">💡 政策提醒与建议</div>
+                <div id="policyAdvice"></div>
+            </div>
+            
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="goToStep6()">← 返回修改</button>
+                <button class="btn btn-primary" onclick="printOptimizedReport()">
+                    <i class="fas fa-print"></i> 打印专业报告
+                </button>
+                <button class="btn btn-secondary" onclick="exportReportPDF()">
+                    <i class="fas fa-file-pdf"></i> 导出PDF
+                </button>
+                <button class="btn btn-secondary" onclick="exportReportJSON()">
+                    <i class="fas fa-file-code"></i> 导出JSON
+                </button>
+                <button class="btn btn-secondary" onclick="resetAll()">
+                    <i class="fas fa-redo"></i> 重新评估
+                </button>    
+            </div>
+        </div>
+    </div>
+
+    <!-- 外部JS -->
+    <script src="script.js"></script>
+    
+    <!-- 新增的聊天相关JavaScript代码 -->
+    <script>
+    // 添加新的键盘事件处理函数
+    function handleChatKeyPress(event) {
+        const textarea = event.target;
+        
+        // Enter发送,Shift+Enter换行
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault(); // 阻止默认的换行行为
+            sendMessage();
+        }
+        
+        // 自动调整textarea高度
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+
+    // 在sendMessage函数中重置textarea高度
+    function sendMessage() {
+        const chatInput = document.getElementById('chatInput');
+        const message = chatInput.value.trim();
+        if (!message) return;
+        
+        if (!CONFIG.isConnected) {
+            alert('AI聊天功能在本地模式下不可用。请切换到在线模式。');
+            return;
+        }
+        
+        // 显示用户消息
+        addMessageToChat('user', message);
+        chatInput.value = '';
+        
+        // 重置textarea高度
+        chatInput.style.height = 'auto';
+        
+        // 发送请求
+        sendAIRequest(message);
+    }
+
+    // 优化的AI请求函数
+    async function sendAIRequest(message) {
+        try {
+            showLoadingIndicator();
+            
+            // 收集用户评估数据一起发给AI
+            const userData = collectUserDataForAI();
+            
+            // 构建包含用户信息的完整提示词
+            const contextPrompt = `
+【用户已填写信息】:
+- 学生年级: ${userData.当前年级 || '未填写'}
+- 能力评估: ${JSON.stringify(userData.能力评估)}
+- 户籍所在区: ${userData.户籍所在区 || '未填写'}
+- 实际居住区: ${userData.实际居住区 || '未填写'}
+- 房产情况: ${userData.房产情况 || '未填写'}
+- 民办意向: ${userData.民办意向 || '未填写'}
+- 预算范围: ${userData.预算范围 || '未填写'}
+- 学生特长: ${userData.学生特长.join('、') || '无'}
+
+【用户问题】:
+${message}
+
+请基于上述真实情况回答,避免泛化回答,必须结合孩子个性化数据进行分析。回答要简洁明了,控制在150字以内。
+            `;
+            
+            // 调用AI
+            const response = await callAIAPI(
+                contextPrompt,
+                CONFIG.provider,
+                CONFIG.apiKey,
+                CONFIG.appId
+            );
+            
+            hideLoadingIndicator();
+            
+            // 显示AI回复
+            addMessageToChat('assistant', response);
+            
+        } catch (error) {
+            hideLoadingIndicator();
+            addMessageToChat('assistant', `抱歉,出现错误:${error.message}`);
+        }
+    }
+
+    // 导出到全局
+    window.handleChatKeyPress = handleChatKeyPress;
+    window.sendAIRequest = sendAIRequest;
+    </script>
+</body>
+</html>
