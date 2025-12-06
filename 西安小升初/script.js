@@ -56,7 +56,7 @@ const PINYIN_MAP = {
     '谭': 'tan',
     '草': 'cao', '滩': 'tan',
     '汉': 'han',
-    '凤': 'feng', '凰': 'huang',
+    '凤': 'feng', '皇': 'huang',
     '进': 'jin',
     '胜': 'sheng', '利': 'li',
     '兴': 'xing',
@@ -2162,17 +2162,54 @@ if (document.readyState === 'loading') {
     initializeApp();
 }
 
-// 导出全局函数（保持与原代码兼容）
+// ========== 7. 修复的步骤导航函数 ==========
 window.showStep = (stepNumber) => {
-    if (appInstance && appInstance.uiController) {
-        appInstance.uiController.goToStep(stepNumber);
+    // 确保步骤编号在有效范围内
+    if (stepNumber < 1 || stepNumber > 7) return;
+    
+    // 隐藏所有步骤
+    document.querySelectorAll('.section').forEach(section => {
+        section.classList.remove('active');
+    });
+    
+    // 显示目标步骤
+    const targetSection = document.getElementById(`step${stepNumber}`);
+    if (targetSection) {
+        targetSection.classList.add('active');
     }
+    
+    // 更新步骤指示器
+    document.querySelectorAll('.step').forEach(step => {
+        step.classList.remove('active');
+    });
+    
+    const targetIndicator = document.getElementById(`step${stepNumber}-indicator`);
+    if (targetIndicator) {
+        targetIndicator.classList.add('active');
+    }
+    
+    // 更新进度条
+    const progressBar = document.getElementById('progressBar');
+    if (progressBar) {
+        const progress = ((stepNumber - 1) / 6) * 100;
+        progressBar.style.width = `${progress}%`;
+    }
+    
+    // 滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.toggleChat = () => {
     const chatWindow = document.getElementById('chatWindow');
     if (chatWindow) {
         chatWindow.classList.toggle('active');
+        // 如果窗口显示，聚焦到输入框
+        if (chatWindow.classList.contains('active')) {
+            setTimeout(() => {
+                const chatInput = document.getElementById('chatInput');
+                if (chatInput) chatInput.focus();
+            }, 100);
+        }
     }
 };
 
@@ -2234,7 +2271,7 @@ window.resetAll = () => {
     }
 };
 
-// 步骤导航快捷函数
+// 步骤导航快捷函数 - 修复这些函数
 window.goToStep1 = () => window.showStep(1);
 window.goToStep2 = () => window.showStep(2);
 window.goToStep3 = () => window.showStep(3);
@@ -2301,6 +2338,99 @@ window.saveAndTestConfig = async () => {
         alert(`配置测试失败：${error.message}`);
     }
 };
+
+// ========== 8. 修复聊天功能 ==========
+// 聊天消息添加到窗口
+function addMessageToChat(sender, content) {
+    const chatBody = document.getElementById('chatBody');
+    if (!chatBody) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `ai-message ${sender}`;
+    
+    const avatar = sender === 'user' ? '👤' : '🐱';
+    messageDiv.innerHTML = `
+        <div class="message-avatar">${avatar}</div>
+        <div class="message-content">${content}</div>
+    `;
+    
+    chatBody.appendChild(messageDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+// 显示加载指示器
+function showLoadingIndicator() {
+    const chatBody = document.getElementById('chatBody');
+    if (!chatBody) return;
+    
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = 'ai-message assistant';
+    loadingDiv.id = 'loadingMessage';
+    loadingDiv.innerHTML = `
+        <div class="message-avatar">🐱</div>
+        <div class="message-content">
+            <div class="ai-loading">
+                <div class="ai-loading-spinner"></div>
+                <p>思考中...</p>
+            </div>
+        </div>
+    `;
+    
+    chatBody.appendChild(loadingDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+// 隐藏加载指示器
+function hideLoadingIndicator() {
+    const loadingDiv = document.getElementById('loadingMessage');
+    if (loadingDiv && loadingDiv.parentNode) {
+        loadingDiv.parentNode.removeChild(loadingDiv);
+    }
+}
+
+// 收集用户数据用于AI
+function collectUserDataForAI() {
+    // 获取当前年级
+    const currentGrade = document.querySelector('input[name="currentGrade"]:checked')?.value || '未填写';
+    
+    // 收集能力评估分数
+    const abilityScores = {};
+    for (let i = 1; i <= 6; i++) {
+        const score = document.querySelector(`input[name="score${i}"]:checked`)?.value || '3';
+        abilityScores[`维度${i}`] = score;
+    }
+    
+    // 收集其他信息
+    return {
+        当前年级: currentGrade,
+        能力评估: abilityScores,
+        户籍所在区: document.getElementById('householdDistrict')?.value || '未填写',
+        实际居住区: document.getElementById('residenceDistrict')?.value || '未填写',
+        房产情况: document.getElementById('hasHouse')?.value || '未填写',
+        民办意向: document.getElementById('considerPrivate')?.value || '未填写',
+        预算范围: document.getElementById('budget')?.value || '未填写',
+        学生特长: Array.from(document.querySelectorAll('input[name="specialty"]:checked')).map(cb => cb.value)
+    };
+}
+
+// 快捷操作
+window.quickAction = (action) => {
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.value = action;
+        // 触发发送
+        setTimeout(() => {
+            sendMessage();
+        }, 100);
+    }
+};
+
+// 将函数暴露到全局
+window.addMessageToChat = addMessageToChat;
+window.showLoadingIndicator = showLoadingIndicator;
+window.hideLoadingIndicator = hideLoadingIndicator;
+window.collectUserDataForAI = collectUserDataForAI;
+window.quickAction = quickAction;
 
 // 调试工具
 window.debugApp = {
