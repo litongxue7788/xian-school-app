@@ -1331,7 +1331,7 @@ async function generateFullPdfReport() {
         addBulletList(propertyInfo, 12);
         
         const admissionType = 判断入学类型(userData);
-        const admissionPriority = calculateAdmissionPriority(HTML内容，不要包含markdown标记。
+        const admissionPriority = calculateAdmissionPriority(userData);
 `;
 
         const abilityAnalysis = await callAIAPI(prompt, CONFIG.provider, CONFIG.apiKey, CONFIG.appId);
@@ -1532,5 +1532,6 @@ ${判断入学类型(userData)}
 .badge-保底 { background: #10b981; color: white; padding: 3px 8px; border-radius: 12px; }
 .badge-对口 { background: #8b5cf6; color: white; padding: 3px 8px; border-radius: 12px; }
 </style>
+
 
 请直接返回
